@@ -1,0 +1,6 @@
+streamlit
+transformers
+datasets
+weaviate-client
+scikit-learn
+uvicornfastapi
