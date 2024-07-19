@@ -4,3 +4,7 @@ datasets
 weaviate-client
 scikit-learn
 uvicornfastapi
+torch
+bitsandbytes
+accelerate
+elasticsearch

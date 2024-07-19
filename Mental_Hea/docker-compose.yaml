@@ -1,51 +1,65 @@
-# version: '3.8'
-
-# services:
-#   weaviate:
-#     image: semitechnologies/weaviate:latest
-#     ports:
-#       - "8080:8080"
-#     environment:
-#       QUERY_DEFAULTS_LIMIT: 20
-#       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-      
-#   app:
-#     build: .
-#     ports:
-#       - "8000:8000"
-#     depends_on:
-#       - weaviate
-#     environment:
-#       WEAVIATE_URL: "http://weaviate:8080"
-#     volumes:
-#       - .:/app
-#     command: uvicorn app:app --host 0.0.0.0 --port 8000
-
-
-version: '3.4'
+version: "3.8"
 services:
-  weaviate:
-    command:
-    - --host
-    - 0.0.0.0
-    - --port
-    - '8080'
-    - --scheme
-    - http
-    image: cr.weaviate.io/semitechnologies/weaviate:1.24.20
+  app:
+    build: .
     ports:
-    - 8080:8080
-    - 50051:50051
+      - "8000:8000"
+    environment:
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+      - WEAVIATE_URL=http://weaviate:8080
+      - HF_DATASET_NAME=dataset_name
+    depends_on:
+      - elasticsearch
+      - weaviate
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.1
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+
+  weaviate:
+    image: semitechnologies/weaviate:1.14.0
+    ports:
+      - "8080:8080"
+      - "50051:50051"
     volumes:
-    - weaviate_data:/var/lib/weaviate
+      - weaviate_data:/var/lib/weaviate
     restart: on-failure:0
     environment:
-      QUERY_DEFAULTS_LIMIT: 10
+      QUERY_DEFAULTS_LIMIT: 20
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       DEFAULT_VECTORIZER_MODULE: 'none'
-      ENABLE_MODULES: text2vec-transformers
-      TRANSFORMERS_INFERENCE_API: http://t2v-transformers:8080
-      CLUSTER_HOSTNAME: 'node1'
-volumes:
-  weaviate_data:
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+
+
+# version: '3.4'
+# services:
+#   weaviate:
+#     command:
+#     - --host
+#     - 0.0.0.0
+#     - --port
+#     - '8080'
+#     - --scheme
+#     - http
+#     image: cr.weaviate.io/semitechnologies/weaviate:1.24.20
+#     ports:
+#     - 8080:8080
+#     - 50051:50051
+#     volumes:
+#     - weaviate_data:/var/lib/weaviate
+#     restart: on-failure:0
+#     environment:
+#       QUERY_DEFAULTS_LIMIT: 10
+#       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+#       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+#       DEFAULT_VECTORIZER_MODULE: 'none'
+#       ENABLE_MODULES: text2vec-transformers
+#       TRANSFORMERS_INFERENCE_API: http://t2v-transformers:8080
+#       CLUSTER_HOSTNAME: 'node1'
+# volumes:
+#   weaviate_data:
