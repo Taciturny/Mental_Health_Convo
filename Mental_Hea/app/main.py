@@ -1,52 +1,48 @@
-# import streamlit as st
+def main():
+    load_dotenv()
 
-# st.title("Mental Health Chatbot")
+    # Initialize Weaviate client
+    weaviate_url = os.getenv('WEAVIATE_URL', 'http://localhost:8080')
+    client = WeaviateClient(weaviate_url).get_client()
 
-# user_input = st.text_input("How can I help you today?")
-# if user_input:
-#     response = get_response(user_input)
-#     st.write(response)
+    # Check Weaviate connection
+    if not client.is_live():
+        logger.error("Failed to connect to Weaviate. Exiting.")
+        return
+    
+    # Create schema
+    schema_manager = WeaviateSchema(client)
+    action = input("Enter action (delete_schema/delete_data/create_schema): ").lower()
+    schema_manager.perform_action(action)
 
+    # Only proceed with data ingestion if the schema exists
+    if schema_manager.schema_exists():
+        # Ingest data
+        ingestion = DataIngestion(client)
+        if not ingestion.data_exists():
+            input_file = os.getenv('INPUT_FILE', 'data/new_weaviate_input.json')
+            ingestion.ingest_data(input_file)
+        else:
+            logger.info("Data already exists in Weaviate. Skipping ingestion.")
 
-# from fastapi import FastAPI, Request
-# from Mental_Hea.app.services.weaviate_schema import create_schema
-# from semantic_search import perform_semantic_search
-# from Models.llm_model import load_model
-# from pydantic import BaseModel
+        # Perform searches
+        search = Search(client)
+        search_query = "Provide emotional and psychological support with a focus on empathy."
+        
+        vector_results = search.vector_search(search_query)
+        semantic_results = search.semantic_search(search_query)
+        hybrid_results = search.hybrid_search(search_query)
 
-# app = FastAPI()
+        # Initialize Language Model
+        llm = LanguageModel()
+        simple_prompt = "I'm going through some things with my feelings and myself. I barely sleep and I've been struggling with anxiety and stress. Can you recommend any coping strategies to avoid medication?"
+        response = llm.generate(simple_prompt, max_new_tokens=150, temperature=0.7, top_p=0.9)
 
-# class Query(BaseModel):
-#     context: str
-
-# # Initialize and load models
-# llm_model = load_model()
-
-# @app.on_event("startup")
-# async def startup_event():
-#     # Create schema in Weaviate
-#     create_schema()
-
-# @app.post("/search")
-# async def search(request: Request):
-#     query = await request.json()
-#     result = perform_semantic_search(query['question'])
-#     return {"result": result}
-
-# @app.post("/generate")
-# async def generate(request: Request):
-#     query = await request.json()
-#     response = llm_model.generate(query['question'])
-#     return {"response": response}
-
-
-from fastapi import FastAPI
-from app.routes import router
-
-app = FastAPI()
-
-app.include_router(router)
+        # Print only the query and response
+        print("User Message:", simple_prompt)
+        print("\nGenerated Response:", response)
+    else:
+        logger.info("Schema does not exist. Skipping data ingestion and search operations.")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()
