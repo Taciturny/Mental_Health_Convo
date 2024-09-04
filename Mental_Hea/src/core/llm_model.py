@@ -78,18 +78,20 @@ class EnsembleModel:
             # Improved prompt engineering
             enhanced_prompt = self.enhance_prompt(prompt, model_name)
 
-            inputs = tokenizer(enhanced_prompt, return_tensors="pt")
+            inputs = tokenizer(enhanced_prompt, return_tensors="pt", truncation=True, max_length=512)
             
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
-                    max_new_tokens=max_new_tokens,
+                    # max_new_tokens=max_new_tokens,
+                    max_new_tokens=min(max_new_tokens, 1024 - len(inputs['input_ids'][0])),
                     num_return_sequences=num_return_sequences,
                     temperature=temperature,
                     top_k=top_k,
                     top_p=top_p,
                     repetition_penalty=repetition_penalty,
-                    do_sample=do_sample
+                    do_sample=do_sample,
+                    pad_token_id=tokenizer.eos_token_id
                 )
 
             sequences = tokenizer.batch_decode(outputs, skip_special_tokens=True)

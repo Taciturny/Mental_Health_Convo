@@ -1,150 +1,174 @@
 import logging
-from typing import List, Tuple
+from typing import List, Any, Dict
+
+import time
 import numpy as np
-from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, PointStruct
+from qdrant_client import QdrantClient, models
 from tenacity import retry, stop_after_attempt, wait_exponential
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
+import tqdm
+from typing import List
+from qdrant_client.http.models import PointStruct
+
+
+logger = logging.getLogger(__name__)
+
 class QdrantManager:
-    def __init__(self, host="localhost", port=6333, url=None, api_key=None):
+    def __init__(self, host: str = "localhost", port: int = 6333, url: str = None, api_key: str = None):
         if url and api_key:
-            # Cloud initialization
-            self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+            self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=600)
         else:
-            # Local initialization
-            self.client = QdrantClient(host=host, port=port)
+            self.client = QdrantClient(host=host, port=port, timeout=600)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    def create_collection(self, collection_name: str, vector_size: int):
+    def create_collection(self, collection_name: str, retries: int = 3, delay: int = 5):
         """
-        Create a new collection in Qdrant.
+        Create a Qdrant collection with the specified name and vector configurations.
 
         Args:
-            collection_name (str): Name of the collection to create.
-            vector_size (int): Size of the vector embeddings.
+            collection_name (str): Name of the collection to be created.
+            retries (int): Number of times to retry creating the collection.
+            delay (int): Delay between retries in seconds.
         """
-        try:
-            logger.info(f"Creating collection: {collection_name}")
-            self.client.recreate_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=vector_size, distance="Cosine"),
-                timeout=30
+        vectors_config = {
+            "text-dense": models.VectorParams(
+                size=384,
+                distance=models.Distance.COSINE
+            ),
+            "text-late": models.VectorParams(
+                size=128,
+                distance=models.Distance.COSINE,
+                multivector_config=models.MultiVectorConfig(
+                    comparator=models.MultiVectorComparator.MAX_SIM,
+                )
             )
-            logger.info(f"Collection {collection_name} created successfully")
+        }
+
+        for attempt in range(retries):
+            try:
+                self.client.create_collection(
+                    collection_name,
+                    vectors_config=vectors_config,
+                )
+                logger.info(f"Collection '{collection_name}' created successfully.")
+                return
+            except TimeoutError as e:
+                logger.warning(f"Timeout error creating collection '{collection_name}' (attempt {attempt + 1}/{retries}): {str(e)}")
+                time.sleep(delay)
+            except Exception as e:
+                logger.error(f"Error creating collection '{collection_name}': {str(e)}")
+                raise
+
+        logger.error(f"Failed to create collection '{collection_name}' after {retries} attempts.")
+        raise TimeoutError(f"Failed to create collection '{collection_name}'.")
+
+
+    def collection_exists(self, collection_name: str) -> bool:
+        """Check if a collection exists."""
+        try:
+            collections = self.client.get_collections().collections
+            return any(collection.name == collection_name for collection in collections)
+        except Exception as e:
+            logger.error(f"Error checking if collection exists: {str(e)}")
+            return False
+
+    def create_collection_if_not_exists(self, collection_name: str):
+        """Create a collection only if it doesn't already exist."""
+        try:
+            if not self.collection_exists(collection_name):
+                self.create_collection(collection_name)
+                logger.info(f"Collection '{collection_name}' created successfully.")
+            else:
+                logger.info(f"Collection '{collection_name}' already exists.")
         except Exception as e:
             logger.error(f"Error creating collection: {str(e)}")
             raise
 
 
-    def prepare_points(self, data: List[tuple], embeddings: List):
+    def prepare_and_upload_points(self, data: List[Dict[str, str]], dense_embeddings: List[np.ndarray], late_embeddings: List[np.ndarray], client, collection_name: str, batch_size: int = 50):
         """
-        Prepare points for insertion into Qdrant.
-
+        Prepare points and upload them to Qdrant in batches.
+        
         Args:
-            data (List[tuple]): List of data tuples (id, question, answer).
-            embeddings (List): List of embeddings.
-
-        Returns:
-            List[PointStruct]: List of prepared points.
+            data (List[Dict[str, str]]): List of data dictionaries.
+            dense_embeddings (List[np.ndarray]): List of dense embeddings.
+            late_embeddings (List[np.ndarray]): List of late embeddings.
+            client: Qdrant client instance to upload points.
+            collection_name: The name of the collection in Qdrant.
+            batch_size (int): The size of each batch. Default is 50.
         """
-        try:
-            logger.info("Preparing points for insertion")
-            points = [
+        
+        # Iterate over data in batches and upload
+        for batch_start in tqdm.tqdm(range(0, len(data), batch_size), total=len(data) // batch_size):
+            batch_end = min(batch_start + batch_size, len(data))
+            
+            batch_data = data[batch_start:batch_end]
+            batch_dense_embeddings = dense_embeddings[batch_start:batch_end]
+            batch_late_embeddings = late_embeddings[batch_start:batch_end]
+            
+            # Prepare points for the current batch
+            batch_points = [
                 PointStruct(
-                    id=str(item[0]),
-                    vector=embedding.tolist(),
+                    id=item['id'],  # Use the 'id' field from the data
+                    vector={
+                        "text-dense": batch_dense_embeddings[i].tolist(),
+                        "text-late": batch_late_embeddings[i].tolist()
+                    },
                     payload={
-                        "question": item[1],
-                        "answer": item[2]
+                        "id": item['id'],
+                        "question": item['question'],
+                        "answer": item['answer']
                     }
                 )
-                for item, embedding in zip(data, embeddings)
+                for i, item in enumerate(batch_data)
             ]
-            logger.info(f"Prepared {len(points)} points")
-            return points
-        except Exception as e:
-            logger.error(f"Error preparing points: {str(e)}")
-            raise
+            
+            # Upload the batch of points to Qdrant
+            client.upload_points(
+                collection_name=collection_name,
+                points=batch_points,
+                batch_size=batch_size
+            )
 
-    def insert_points(self, collection_name: str, points: List[PointStruct], batch_size: int = 500):
+    def _retry_operation(self, operation: Any, retries: int, delay: int, error_message: str):
+            """
+            Retry an operation with a specified number of retries and delay.
+            Args:
+                operation (Callable): The operation to perform.
+                retries (int): Number of retries.
+                delay (int): Delay between retries.
+                error_message (str): Message to log on error.
+            """
+            for attempt in range(retries):
+                try:
+                    operation()
+                    return
+                except TimeoutError as e:
+                    logger.warning(f"{error_message} (attempt {attempt + 1}/{retries}): {str(e)}")
+                    time.sleep(delay)
+                except Exception as e:
+                    logger.error(f"{error_message}: {str(e)}")
+                    if attempt == retries - 1:
+                        raise
+                    time.sleep(delay)
+
+    def _process_in_batches(self, data: List[Any], batch_size: int, operation: Any, log_message: str):
         """
-        Insert points into the Qdrant collection.
-
+        Process data in batches and perform an operation on each batch.
         Args:
-            collection_name (str): Name of the collection to insert into.
-            points (List[PointStruct]): List of points to insert.
-            batch_size (int): Number of points to insert in each batch.
+            data (List[Any]): List of data to process.
+            batch_size (int): Number of items per batch.
+            operation (Callable): Operation to perform on each batch.
+            log_message (str): Log message to use after processing each batch.
         """
-        try:
-            logger.info(f"Inserting {len(points)} points into {collection_name}")
-            for i in range(0, len(points), batch_size):
-                batch = points[i:i+batch_size]
-                self.client.upsert(collection_name=collection_name, points=batch)
-            logger.info("Points inserted successfully")
-        except Exception as e:
-            logger.error(f"Error inserting points: {str(e)}")
-            raise
-
-    def init_collection(self, collection_name: str, vector_size: int):
-        """
-        Initialize a collection if it doesn't exist.
-
-        Args:
-            collection_name (str): Name of the collection.
-            vector_size (int): Size of the vector embeddings.
-
-        Returns:
-            bool: True if a new collection was created, False if it already existed.
-        """
-        try:
-            if not self.collection_exists(collection_name):
-                logger.info(f"Collection '{collection_name}' does not exist. Creating new collection.")
-                self.create_collection(collection_name, vector_size)
-                return True
-            else:
-                logger.info(f"Collection '{collection_name}' already exists.")
-                return False
-        except Exception as e:
-            logger.error(f"Error initializing collection: {str(e)}")
-            raise
-
-    def collection_exists(self, collection_name: str) -> bool:
-        """
-        Check if a collection exists in Qdrant.
-
-        Args:
-            collection_name (str): Name of the collection to check.
-
-        Returns:
-            bool: True if the collection exists, False otherwise.
-        """
-        try:
-            collections = self.client.get_collections().collections
-            return any(collection.name == collection_name for collection in collections)
-        except Exception as e:
-            logger.error(f"Error checking collection existence: {str(e)}")
-            return False
-
-    def index_and_insert_data(self, collection_name: str, data: List[Tuple[str, str, str]], embeddings: List[np.ndarray]):
-        """
-        Index and insert data into Qdrant.
-
-        Args:
-            collection_name (str): Name of the collection to insert into.
-            data (List[Tuple[str, str, str]]): List of data tuples (id, question, answer).
-            embeddings (List[np.ndarray]): List of embeddings.
-        """
-        try:
-            logger.info(f"Indexing and inserting {len(data)} points into {collection_name}")
-            points = self.prepare_points(data, embeddings)
-            self.insert_points(collection_name, points)
-            logger.info("Data indexed and inserted successfully")
-        except Exception as e:
-            logger.error(f"Error indexing and inserting data: {str(e)}")
-            raise
+        for start in range(0, len(data), batch_size):
+            end = min(start + batch_size, len(data))
+            batch = data[start:end]
+            operation(batch)
+            logger.info(log_message)
 
     def collection_is_empty(self, collection_name: str) -> bool:
         """
@@ -161,4 +185,25 @@ class QdrantManager:
             return collection_info.points_count == 0
         except Exception as e:
             logger.error(f"Error checking if collection is empty: {str(e)}")
-            return True   # Assume empty if there's an error
+            return True  
+        
+
+    def get_collection_points_count(self, collection_name: str) -> int:
+        """
+        Get the number of points in the specified collection.
+
+        Args:
+            collection_name (str): Name of the collection.
+
+        Returns:
+            int: The number of points in the collection.
+        """
+        try:
+            collection_info = self.client.get_collection(collection_name)
+            return collection_info.points_count
+        except Exception as e:
+            logger.error(f"Error getting collection points count: {str(e)}")
+            return 0
+
+
+

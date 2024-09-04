@@ -5,11 +5,11 @@ sys.path.append(str(project_root))
 
 import re
 import logging
-# import traceback
-from typing import List, Dict, Any
-from qdrant_client.http import models
+import numpy as np
+from typing import Dict, Any
 from .qdrant_manager import QdrantManager
 from .embeddings_model import EmbeddingsModel
+from qdrant_client import QdrantClient, models
 from .llm_model import EnsembleModel  
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -17,149 +17,104 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SearchEngine:
-    """Manages search operations using Qdrant vector database and text embeddings."""
+    """Manages hybrid search operations using Qdrant vector database and text embeddings."""
 
-    def __init__(self, collection_name: str, vector_size: int = 384, host: str = "localhost", port: int = 6333):
+    def __init__(self, collection_name: str, host: str = "localhost", port: int = 6333):
         self.collection_name = collection_name
-        self.vector_size = vector_size
-        # Ensure host is a string and port is an integer
-        if not isinstance(host, str):
-            raise ValueError("Host must be a string.")
-        if not isinstance(port, int):
-            raise ValueError("Port must be an integer.")
-        
-        self.qdrant_manager = QdrantManager(host=host, port=port)  # Updated: removed collection_name here
+        self.qdrant_client = QdrantManager(host=host, port=port)
         self.embeddings_model = EmbeddingsModel.get_instance()
+        self.client = QdrantClient("http://localhost:6333")
         self.llm_model = EnsembleModel.get_instance()
-        self._init_collection()
 
-    def _init_collection(self, create_new: bool = False):
+    def _init_collection(self):
+        """Initialize the Qdrant collection if it doesn't exist."""
         try:
-            if create_new:
-                self.qdrant_manager.create_collection(self.collection_name, self.vector_size)
+            if not self.qdrant_client.collection_exists(self.collection_name):
+                self.qdrant_client.create_collection(self.collection_name)
                 logger.info(f"Created new collection: {self.collection_name}")
             else:
-                # Check if collection exists, create only if it doesn't
-                if not self.qdrant_manager.collection_exists(self.collection_name):
-                    self.qdrant_manager.create_collection(self.collection_name, self.vector_size)
-                    logger.info(f"Created new collection: {self.collection_name}")
-                else:
-                    logger.info(f"Collection {self.collection_name} already exists")
+                logger.info(f"Collection {self.collection_name} already exists")
         except Exception as e:
             logger.error(f"Error initializing collection: {str(e)}")
             raise
 
 
-    def vector_search(self, query: str, limit: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:
+    def search_dense(self, query_text: str):
         try:
-            query_embedding = self.embeddings_model.get_embeddings([query])[0]
-            search_results = self.qdrant_manager.client.search(
+            dense_embeddings, _ = self.embeddings_model.embeddings([query_text])
+            results = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_embedding.tolist(),
-                limit=limit,
-                score_threshold=threshold
+                query=dense_embeddings[0],
+                using="text-dense",
+                limit=3,
+                with_payload=True
             )
-            results = [
-                {
-                    "id": hit.id,
-                    "question": hit.payload["question"],
-                    "answer": hit.payload["answer"],
-                    "score": hit.score
-                }
-                for hit in search_results
-            ]
-            logger.info(f"Vector search completed. Found {len(results)} results.")
             return results
         except Exception as e:
-            logger.error(f"Error performing vector search: {str(e)}")
+            logger.error(f"Error performing dense search: {str(e)}")
             raise
-    def keyword_search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+
+    def search_late(self, query_text: str):
         try:
-            # Split the query into individual words
-            keywords = query.lower().split()
-
-            # Create a keyword filter
-            keyword_filter = models.Filter(
-                should=[
-                    models.FieldCondition(
-                        key="question",
-                        match=models.MatchText(text=keyword)
-                    ) for keyword in keywords
-                ] + [
-                    models.FieldCondition(
-                        key="answer",
-                        match=models.MatchText(text=keyword)
-                    ) for keyword in keywords
-                ]
-            )
-
-            search_results = self.qdrant_manager.client.search(
+            _, late_embeddings = self.embeddings_model.embeddings([query_text])
+            results = self.client.query_points(
                 collection_name=self.collection_name,
-                query_filter=keyword_filter,
-                limit=limit,
-                query_vector=[0.0] * 384 
+                query=late_embeddings[0],
+                using="text-late",
+                limit=2,
+                with_payload=True
             )
-
-            results = []
-            for hit in search_results:
-                # Calculate a simple score based on keyword matches
-                question_matches = sum(keyword in hit.payload["question"].lower() for keyword in keywords)
-                answer_matches = sum(keyword in hit.payload["answer"].lower() for keyword in keywords)
-                total_matches = question_matches + answer_matches
-                score = total_matches / len(keywords)  # Normalize score
-
-                results.append({
-                    "id": hit.id,
-                    "question": hit.payload["question"],
-                    "answer": hit.payload["answer"],
-                    "score": score
-                })
-
-            # Sort results by score in descending order
-            results.sort(key=lambda x: x["score"], reverse=True)
-
-            logger.info(f"Keyword search completed. Found {len(results)} results.")
             return results
-
         except Exception as e:
-            logger.error(f"Error performing keyword search: {str(e)}")
+            logger.error(f"Error performing late interaction search: {str(e)}")
             raise
 
-    def hybrid_search(self, query: str, limit: int = 5, threshold: float = 0.5, boost: float = 0.5) -> List[Dict[str, Any]]:
-        try:
-            vector_results = self.vector_search(query, limit=limit, threshold=threshold)
-            keyword_results = self.keyword_search(query, limit=limit)
 
-            # Combine results
-            results = vector_results + keyword_results
+    def search_hybrid(self, query_text: str):
+        try:
+            # Get embeddings from your model
+            dense_embeddings, late_embeddings = self.embeddings_model.embeddings([query_text])
             
-            # Re-rank results
-            for result in results:
-                vector_score = result['score']
-                keyword_match = any(
-                    keyword in result['question'].lower() or keyword in result['answer'].lower()
-                    for keyword in query.lower().split()
-                )
-                if keyword_match:
-                    result['score'] = vector_score * (1 - boost) + boost
-                else:
-                    result['score'] = vector_score * (1 - boost)
+            # Prepare prefetch query for initial retrieval
+            prefetch = [
+                models.Prefetch(
+                    query=dense_embeddings[0],
+                    using="text-dense",
+                    limit=20,  # Retrieve top 20 for reranking
+                ),
+            ]
+            
+            # Perform combined search with initial retrieval and reranking
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                prefetch=prefetch,
+                query=late_embeddings[0],  
+                using="text-late",  
+                limit=10,  # Final limit after reranking
+                with_payload=True
+            )
 
-            # Remove duplicates and sort
-            unique_results = {result['id']: result for result in results}.values()
-            sorted_results = sorted(unique_results, key=lambda x: x['score'], reverse=True)[:limit]
+            return results
 
-            logger.info(f"Hybrid search completed. Found {len(sorted_results)} results.")
-            return sorted_results
         except Exception as e:
-            logger.error(f"Error performing hybrid search: {str(e)}")
+            logger.error(f"Error performing hybrid search with reranking: {str(e)}")
             raise
 
     def compute_relevance(self, query: str, response: str) -> float:
-        query_embedding = self.embeddings_model.get_embeddings([query])[0]
-        response_embedding = self.embeddings_model.get_embeddings([response])[0]
-        similarity = cosine_similarity([query_embedding], [response_embedding])[0][0]
+        # Get dense embeddings for query and response
+        query_dense, _ = self.embeddings_model.embeddings([query])
+        response_dense, _ = self.embeddings_model.embeddings([response])
+        
+        # Ensure embeddings are 2D arrays
+        query_dense = np.array(query_dense).reshape(1, -1)
+        response_dense = np.array(response_dense).reshape(1, -1)
+        
+        # Compute similarity using dense embeddings
+        similarity = cosine_similarity(query_dense, response_dense)[0][0]
+        
         return similarity
+
+
     
 
     def score_response(self, response: str, query: str) -> float:
@@ -182,11 +137,19 @@ class SearchEngine:
         #   Higher weight on empathy reflects the importance of providing supportive and sensitive responses.
         combined_score = 0.3 * relevance_score + 0.2 * fluency_score + 0.5 * empathy_score
         return combined_score
+    
 
-    def rag(self, query: str, max_results: int = 5, threshold: float = 0.5) -> Dict[str, Any]:
+    def generate_context(self, search_results):
+        context = []
+        for point in search_results.points:
+            payload = point.payload
+            context.append(f"Q: {payload.get('question', 'N/A')}\nA: {payload.get('answer', 'N/A')}")
+        return "\n".join(context)
+
+    def rag(self, query: str) -> Dict[str, Any]:
         try:
             # Step 1: Perform hybrid search
-            search_results = self.hybrid_search(query, limit=max_results, threshold=threshold)
+            search_results = self.search_hybrid(query)
 
             # Step 2: Generate context from search results
             context = self.generate_context(search_results)
@@ -213,8 +176,24 @@ class SearchEngine:
             logger.error(f"Error in RAG search: {str(e)}")
             return self.fallback_to_hybrid(query)
 
-    def generate_context(self, search_results):
-        return "\n".join([f"Q: {result['question']}\nA: {result['answer']}" for result in search_results])
+    def fallback_to_hybrid(self, query: str) -> Dict[str, Any]:
+        results = self.search_hybrid(query)
+        if results.points:
+            best_result = results.points[0].payload
+            fallback_response = f"Based on the information I have, {best_result.get('answer', 'No specific answer found.')}"
+            return {
+                "query": query,
+                "response": self.format_response(fallback_response),
+                "search_results": results,
+                "confidence_score": 0.5  # Default confidence score for fallback
+            }
+        else:
+            return {
+                "query": query,
+                "response": "I'm sorry, but I couldn't find any relevant information to answer your query. Could you please rephrase your question or provide more details?",
+                "search_results": results,
+                "confidence_score": 0.1  # Low confidence score when no results found
+            }
 
     def construct_prompt(self, query, context):
         return f"Context:\n{context}\n\nUser Query: {query}\n\nAs an AI assistant specializing in mental health, please provide a helpful and empathetic response:"
@@ -225,23 +204,6 @@ class SearchEngine:
         context_relevance_score = self.compute_relevance(query, context)
         return (response_length_score + context_relevance_score) / 2
 
-    def fallback_to_hybrid(self, query: str) -> Dict[str, Any]:
-        results = self.hybrid_search(query, limit=1, threshold=0.5)
-        if results:
-            best_result = results[0]
-            fallback_response = f"Based on the information I have, {best_result['answer']}"
-            return {
-                "response": self.format_response(fallback_response), 
-                "search_results": results,
-                "confidence_score": 0.5  # Default confidence score for fallback
-            }
-        else:
-            return {
-                "response": "I'm sorry, but I couldn't find any relevant information to answer your query. Could you please rephrase your question or provide more details?",
-                "search_results": [],
-                "confidence_score": 0.1  # Low confidence score when no results found
-            }
-        
     def post_process_response(self, response: str, query: str) -> str:
         # Remove common prompt artifacts and clean up the response
         artifacts = ["Response:", "Q:", "q:", "User Query:", "A:", "a:", "Context:", "Question:", "Answer:"]
@@ -275,42 +237,12 @@ class SearchEngine:
         
         return formatted_response
 
-    def get_collection_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the current collection.
+ 
 
-        Returns:
-            Dict[str, Any]: Collection statistics.
-        """
-        try:
-            # Force a refresh of the collection info
-            self.qdrant_manager.client.refresh_collection(collection_name=self.collection_name)
-            
-            info = self.qdrant_manager.get_collection_info(self.collection_name)
-            stats = {
-                "name": self.collection_name,
-                "vector_size": self.vector_size,
-                "total_vectors": info.vectors_count if info.vectors_count is not None else 0,
-                "points_count": info.points_count if info.points_count is not None else 0
-            }
-            logger.info(f"Retrieved collection stats: {stats}")
-            return stats
-        except Exception as e:
-            logger.error(f"Error getting collection stats: {str(e)}")
-            # Return default stats if there's an error
-            return {
-                "name": self.collection_name,
-                "vector_size": self.vector_size,
-                "total_vectors": 0,
-                "points_count": 0
-            }
-        
-    def clear_collection(self):
-        """Clear all data from the current collection."""
-        try:
-            self.qdrant_manager.client.delete_collection(self.collection_name)
-            self._init_collection()
-            logger.info(f"Collection {self.collection_name} cleared and reinitialized")
-        except Exception as e:
-            logger.error(f"Error clearing collection: {str(e)}")
-            raise
+
+
+
+
+
+
+
