@@ -80,7 +80,7 @@ class SearchEngine:
                 models.Prefetch(
                     query=dense_embeddings[0],
                     using="text-dense",
-                    limit=20,  # Retrieve top 20 for reranking
+                    limit=30,  # Retrieve top 20 for reranking
                 ),
             ]
             
@@ -90,7 +90,7 @@ class SearchEngine:
                 prefetch=prefetch,
                 query=late_embeddings[0],  
                 using="text-late",  
-                limit=10,  # Final limit after reranking
+                limit=5,  # Final limit after reranking
                 with_payload=True
             )
 
@@ -114,9 +114,6 @@ class SearchEngine:
         
         return similarity
 
-
-    
-
     def score_response(self, response: str, query: str) -> float:
         """
         Scores a response based on relevance, fluency, and empathy.
@@ -126,77 +123,13 @@ class SearchEngine:
         Returns:
         - A score combining relevance, fluency, and empathy metrics.
         """
-        relevance_score = self.compute_relevance(query, response)
-        fluency_score = self.llm_model.compute_fluency(response)
-        empathy_score = self.llm_model.compute_empathy(response)
+        relevance_score = self.compute_relevance(query, response)    # - Relevance (0.3): Ensures the response is directly relevant to the user's query.
+        fluency_score = self.llm_model.compute_fluency(response)     # - Fluency (0.2): Assesses how naturally and coherently the response is phrased.
+        empathy_score = self.llm_model.compute_empathy(response)      # - Empathy (0.5): Prioritizes understanding and compassion, which is crucial for mental health contexts.
         
-        # Combine the scores with weights:
-        # - Relevance (0.3): Ensures the response is directly relevant to the user's query.
-        # - Fluency (0.2): Assesses how naturally and coherently the response is phrased.
-        # - Empathy (0.5): Prioritizes understanding and compassion, which is crucial for mental health contexts.
-        #   Higher weight on empathy reflects the importance of providing supportive and sensitive responses.
-        combined_score = 0.3 * relevance_score + 0.2 * fluency_score + 0.5 * empathy_score
+        # Combine the scores with weights:       
+        combined_score = 0.3 * relevance_score + 0.2 * fluency_score + 0.5 * empathy_score   #   Higher weight on empathy reflects the importance of providing supportive and sensitive responses.
         return combined_score
-    
-
-    def generate_context(self, search_results):
-        context = []
-        for point in search_results.points:
-            payload = point.payload
-            context.append(f"Q: {payload.get('question', 'N/A')}\nA: {payload.get('answer', 'N/A')}")
-        return "\n".join(context)
-
-    def rag(self, query: str) -> Dict[str, Any]:
-        try:
-            # Step 1: Perform hybrid search
-            search_results = self.search_hybrid(query)
-
-            # Step 2: Generate context from search results
-            context = self.generate_context(search_results)
-
-            # Step 3: Generate response using ensemble model
-            prompt = self.construct_prompt(query, context)
-            generated_responses = self.llm_model.generate_text(prompt, max_new_tokens=200, num_return_sequences=1)
-
-            # Step 4: Post-process and format the response
-            best_response = self.post_process_response(generated_responses[0], query)
-            formatted_response = self.format_response(best_response)
-
-            # Step 5: Prepare the final result
-            result = {
-                "query": query,
-                "response": formatted_response,
-                "search_results": search_results,
-                "confidence_score": self.compute_confidence_score(formatted_response, query, context)
-            }
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error in RAG search: {str(e)}")
-            return self.fallback_to_hybrid(query)
-
-    def fallback_to_hybrid(self, query: str) -> Dict[str, Any]:
-        results = self.search_hybrid(query)
-        if results.points:
-            best_result = results.points[0].payload
-            fallback_response = f"Based on the information I have, {best_result.get('answer', 'No specific answer found.')}"
-            return {
-                "query": query,
-                "response": self.format_response(fallback_response),
-                "search_results": results,
-                "confidence_score": 0.5  # Default confidence score for fallback
-            }
-        else:
-            return {
-                "query": query,
-                "response": "I'm sorry, but I couldn't find any relevant information to answer your query. Could you please rephrase your question or provide more details?",
-                "search_results": results,
-                "confidence_score": 0.1  # Low confidence score when no results found
-            }
-
-    def construct_prompt(self, query, context):
-        return f"Context:\n{context}\n\nUser Query: {query}\n\nAs an AI assistant specializing in mental health, please provide a helpful and empathetic response:"
 
     def compute_confidence_score(self, response, query, context):
         # Implement a simple confidence score based on response length and context relevance
@@ -204,23 +137,6 @@ class SearchEngine:
         context_relevance_score = self.compute_relevance(query, context)
         return (response_length_score + context_relevance_score) / 2
 
-    def post_process_response(self, response: str, query: str) -> str:
-        # Remove common prompt artifacts and clean up the response
-        artifacts = ["Response:", "Q:", "q:", "User Query:", "A:", "a:", "Context:", "Question:", "Answer:"]
-        for artifact in artifacts:
-            response = response.replace(artifact, "")
-        
-        # Split the response into sentences
-        sentences = re.split(r'(?<=[.!?])\s+', response.strip())
-        
-        # Capitalize the first letter of each sentence and join them
-        cleaned_sentences = [sentence.strip().capitalize() for sentence in sentences if sentence.strip()]
-        final_response = ' '.join(cleaned_sentences)
-        
-        if not final_response:
-            return self.fallback_to_hybrid(query)["response"]
-        
-        return final_response
 
 
     def format_response(self, response: str) -> str:
@@ -237,12 +153,101 @@ class SearchEngine:
         
         return formatted_response
 
- 
+    def fallback_to_search(self, query: str, search_type: str) -> Dict[str, Any]:
+        if search_type == 'dense':
+            results = self.search_dense(query)
+        elif search_type == 'late':
+            results = self.search_late(query)
+        else:  # default to hybrid
+            results = self.search_hybrid(query)
+
+        if results.points:
+            best_result = results.points[0].payload
+            fallback_response = f"Based on the information I have, {best_result.get('answer', 'No specific answer found.')}"
+            return {
+                "query": query,
+                "response": self.format_response(fallback_response),
+                "search_results": results,
+                "search_type": search_type,
+                "model_type": "fallback",
+                "confidence_score": 0.5  # Default confidence score for fallback
+            }
+        else:
+            return {
+                "query": query,
+                "response": "I'm sorry, but I couldn't find any relevant information to answer your query. Could you please rephrase your question or provide more details?",
+                "search_results": results,
+                "search_type": search_type,
+                "model_type": "fallback",
+                "confidence_score": 0.1  # Low confidence score when no results found
+            }
+
+    def construct_prompt(self, query, context):
+        return f"Context:\n{context}\n\nUser Query: {query}\n\nAs an AI assistant specializing in mental health, please provide a helpful and empathetic response:"
 
 
+    def rag(self, query: str, search_type: str = 'hybrid', model_type: str = 'ensemble') -> Dict[str, Any]:
+        try:
+            # Step 1: Perform search based on the specified type
+            if search_type == 'dense':
+                search_results = self.search_dense(query)
+            elif search_type == 'late':
+                search_results = self.search_late(query)
+            else:  # default to hybrid
+                search_results = self.search_hybrid(query)
 
+            # Step 2: Generate context from search results
+            context = self.generate_context(search_results)
 
+            # Step 3: Construct a more focused prompt
+            prompt = f"""
+            Given the following context and question, provide a concise and relevant answer:
 
+            Context: {context}
 
+            Question: {query}
 
+            Answer:
+            """
 
+            # Step 4: Generate response using specified model or ensemble
+            generated_responses = self.llm_model.generate_text(prompt, model_name=model_type)
+
+            # Step 5: Post-process and format the response
+            best_response = self.post_process_response(generated_responses[0], query)
+
+            # Step 6: Prepare the final result
+            result = {
+                "query": query,
+                "response": best_response,
+                "search_results": search_results,
+                "search_type": search_type,
+                "model_type": model_type,
+                "confidence_score": self.compute_confidence_score(best_response, query, context)
+            }
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in RAG search: {str(e)}", exc_info=True)
+            return self.fallback_to_search(query, search_type)
+
+    def generate_context(self, search_results):
+        context = ""
+        for point in search_results.points:
+            context += f"Q: {point.payload['question']}\nA: {point.payload['answer']}\n\n"
+        return context.strip()
+
+    def post_process_response(self, response: str, query: str) -> str:
+        # Remove any generated question-like phrases
+        response = re.sub(r'^(Question:|Q:).*?\n', '', response, flags=re.IGNORECASE|re.MULTILINE)
+        
+        # Remove the query from the beginning of the response if it's there
+        response = re.sub(f'^{re.escape(query)}:\s*', '', response, flags=re.IGNORECASE)
+        
+        # Capitalize the first letter and ensure the response ends with a period
+        response = response.strip().capitalize()
+        if not response.endswith('.'):
+            response += '.'
+        
+        return response
