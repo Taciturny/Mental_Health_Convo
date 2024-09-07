@@ -1,0 +1,299 @@
+import sys
+from pathlib import Path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+
+import time
+import uuid
+import random
+import streamlit as st
+import logging
+from typing import Tuple
+
+from database import SQLiteDatabase
+from cohere_model import CohereModel
+from search_engine import SearchEngine
+from src.core.config import settings
+from src.core.utils import is_relevant_query
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# Set page configuration at the top level of the script
+st.set_page_config(page_title="Mental Health Chatbot", layout="wide", initial_sidebar_state="expanded")
+
+
+
+class MentalHealthChatbot:
+    def __init__(self):
+        self.search_engine = SearchEngine(settings.COLLECTION_NAME_CLOUD)
+        self.llm_model = CohereModel(settings.COHERE_API_KEY)
+        self.database = SQLiteDatabase()
+        self.database.connect()
+        self.relevant_keywords = [
+            'depression', 'anxiety', 'stress', 'therapy', 'mental', 'health',
+            'counseling', 'psychiatry', 'psychology', 'disorder', 'treatment',
+            'medication', 'symptoms', 'diagnosis', 'support', 'wellbeing', 'burnout'
+        ]
+
+
+    def run(self):
+        try:
+            st.sidebar.title("Navigation")
+            page = st.sidebar.radio("Go to", ["Chat", "Metrics"])
+
+            if page == "Chat":
+                self.run_chat()
+            elif page == "Metrics":
+                self.display_metrics_page()
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+            logger.error(f"Error in run method: {str(e)}", exc_info=True)
+
+
+    def run_chat(self):
+        try:
+            st.title("Mental Health Chatbot")
+            logger.info("Starting run method")
+
+            self.initialize_session_state()
+            self.display_chat_history()
+            self.handle_user_input()
+            self.show_sidebar()
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+            logger.error(f"Error in run method: {str(e)}", exc_info=True)
+
+    def initialize_session_state(self):
+        if 'messages' not in st.session_state:
+            st.session_state.messages = [{"role": "assistant", "content": "Hello there! How can I help you today?"}]
+        if 'conversation_id' not in st.session_state:
+            st.session_state.conversation_id = None
+
+    def get_db_connection(self):
+        return SQLiteDatabase()
+
+    def display_chat_history(self):
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+
+    def handle_user_input(self):
+            user_input = st.chat_input("Enter your message:", key="user_chat_input")
+            if user_input:
+                preprocessed_input = self.preprocess_input(user_input)
+                simple_response, end_conversation = self.handle_simple_inputs(preprocessed_input)
+                
+                self.add_message_to_chat("user", user_input)
+
+                if simple_response:
+                    self.add_message_to_chat("assistant", simple_response)
+                    if end_conversation:
+                        st.stop()
+                else:
+                    response, response_time, prompt_tokens, response_tokens, completion_tokens, relevance = self.generate_response(user_input)
+                    self.add_message_to_chat("assistant", response)
+                    self.update_conversation(user_input, response, response_time, prompt_tokens, response_tokens, completion_tokens, relevance)
+
+    def add_message_to_chat(self, role: str, content: str):
+        st.session_state.messages.append({"role": role, "content": content})
+        with st.chat_message(role):
+            st.write(content)
+
+    def generate_response(self, user_input: str) -> Tuple[str, float, int, int, int, str]:
+        try:
+            start_time = time.time()
+            
+            if not is_relevant_query(user_input, self.relevant_keywords):
+                response = ("I apologize, but your question doesn't seem to be directly related to mental health. "
+                            "As a mental health chatbot, I'm designed to provide support and information on mental health topics. "
+                            "Could you please ask a question related to mental health or well-being? "
+                            "If you're looking for general information on other topics, you might want to try a general-purpose search engine.")
+                end_time = time.time()
+                return response, end_time - start_time, 0, len(response.split()), 0, "NON_RELEVANT"
+
+            search_results = self.search_engine.search_dense(user_input)
+            context = ""
+            max_score = 0
+            
+            if search_results and hasattr(search_results, 'points') and search_results.points:
+                for point in search_results.points:
+                    payload = point.payload
+                    context += f"{payload.get('text', '')}\n"
+                    max_score = max(max_score, point.score)
+                    logger.info(f"Answer: {payload.get('answer', 'N/A')}, Score: {point.score}")
+            
+            if max_score < 0.5:
+                response = ("I'm not confident I have accurate information to answer your question. "
+                            "Could you please rephrase your question or ask about a different mental health topic? "
+                            "I'm here to provide reliable information and support related to mental health.")
+                relevance = "PARTLY_RELEVANT"
+            else:
+                prompt = f"Context: {context}\n\nUser: {user_input}\nAssistant:"
+                response = self.llm_model.generate_response(prompt)
+                relevance = "RELEVANT"
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            prompt_tokens = len(prompt.split())
+            response_tokens = len(response.split())
+            completion_tokens = prompt_tokens + response_tokens
+            
+            return self.post_process_response(response), response_time, prompt_tokens, response_tokens, completion_tokens, relevance
+        except Exception as e:
+            logger.error(f"Error generating response: {str(e)}")
+            return "I'm sorry, I encountered an error while processing your request. Could you please try again?", 0.0, 0, 0, 0, "NON_RELEVANT"
+
+    def post_process_response(self, response: str) -> str:
+        # Add any post-processing logic here if needed
+        return response
+
+    def preprocess_input(self, user_input: str) -> str:
+        return user_input.lower().strip()
+    
+    def handle_simple_inputs(self, preprocessed_input: str) -> Tuple[str, bool]:
+        simple_responses = {
+            "thank you": ("You're welcome! I'm glad I could help. Is there anything else you'd like to discuss?", True),
+            "thanks": ("You're welcome! Is there anything else on your mind?", True),
+            "bye": ("Take care! Remember, it's okay to reach out whenever you need support.", True),
+            "hello": ("Hello! How can I assist you today?", False),
+            "hi": ("Hi there! What would you like to talk about?", False)
+        }
+        return simple_responses.get(preprocessed_input, (None, False))
+
+    def update_conversation(self, user_input, response, response_time, prompt_tokens, response_tokens, completion_tokens, relevance):
+        try:
+            with self.get_db_connection() as db:
+                if st.session_state.conversation_id is None:
+                    st.session_state.conversation_id = db.store_conversation(
+                        user_id=str(uuid.uuid4()),  
+                        user_input=user_input,
+                        response=response,
+                        response_time=response_time,
+                        search_method="dense",
+                        model_used="cohere"
+                    )
+                else:
+                    db.update_conversation(
+                        st.session_state.conversation_id,
+                        user_input,
+                        response,
+                        "dense",
+                        "cohere"
+                    )
+                db.store_conversation_metrics(
+                    st.session_state.conversation_id,
+                    prompt_tokens,
+                    response_tokens,
+                    completion_tokens,
+                    relevance
+                )
+            if st.session_state.conversation_id:
+                self.display_feedback_buttons(st.session_state.conversation_id)
+        except Exception as e:
+            logger.error(f"Error updating conversation: {str(e)}")
+            st.error("An error occurred while saving the conversation. Your chat may not be persisted.")
+
+    def display_feedback_buttons(self, conversation_id: int):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("👍 Helpful"):
+                self.submit_feedback(conversation_id, "Helpful")
+        with col2:
+            if st.button("👎 Not Helpful"):
+                self.submit_feedback(conversation_id, "Not Helpful")
+        with col3:
+            if st.button("🤔 Needs Improvement"):
+                self.submit_feedback(conversation_id, "Needs Improvement")
+
+    def submit_feedback(self, conversation_id: int, feedback_type: str):
+        self.database.store_feedback(conversation_id, feedback_type)
+        st.success("Thank you for your feedback!")
+
+
+    def display_metrics_page(self):
+        st.title("Chatbot Metrics")
+
+        try:
+        
+            total_conversations = self.database.get_total_conversations()
+            st.write(f"Total conversations: {total_conversations}")
+
+            avg_response_time = self.database.get_average_response_time()
+            st.write(f"Average response time: {avg_response_time:.2f} seconds")
+
+            feedback_stats = self.database.get_feedback_stats()
+            st.write("Feedback received:")
+            for feedback_type, count in feedback_stats.items():
+                st.write(f"- {feedback_type}: {count}")
+
+            popular_methods = self.database.get_popular_search_methods(limit=3)
+            st.write("Top search methods:")
+            for method, count in popular_methods:
+                st.write(f"- {method}: {count} times")
+
+            model_stats = self.database.get_model_usage_stats()
+            st.write("Model usage:")
+            for model, count in model_stats.items():
+                st.write(f"- {model}: {count} times")
+
+            avg_tokens = self.database.get_average_tokens()
+            st.write("Average token usage:")
+            st.write(f"- Prompt tokens: {avg_tokens[0]:.2f}")
+            st.write(f"- Response tokens: {avg_tokens[1]:.2f}")
+            st.write(f"- Completion tokens: {avg_tokens[2]:.2f}")
+
+            relevance_stats = self.database.get_relevance_stats()
+            st.write("Response relevance:")
+            for relevance, count in relevance_stats.items():
+                st.write(f"- {relevance}: {count}")
+
+        except Exception as e:
+             st.error(f"An error occurred while fetching metrics: {str(e)}")
+             logger.error(f"Error in display_metrics_page: {str(e)}", exc_info=True)
+
+
+    def show_sidebar(self):
+        st.sidebar.title("💡 Get a Mental Health Tip")
+        tip = self.get_mental_health_tip()
+        st.sidebar.write(tip)
+
+        st.sidebar.title("📊 Quick Mood Check")
+        mood = st.sidebar.slider("How are you feeling today?", 1, 5, 3)
+        mood_labels = {1: "Very Low", 2: "Low", 3: "Neutral", 4: "Good", 5: "Excellent"}
+        st.sidebar.write(f"You're feeling: {mood_labels[mood]}")
+
+        st.sidebar.title("Need immediate help?")
+        st.sidebar.write("If you're in crisis, please call your local emergency number or a mental health helpline.")
+    
+        st.sidebar.title("🚀 Helpful Resources")
+        st.sidebar.markdown("""
+        - [Meditation App](https://www.headspace.com/)
+        - [Crisis Helpline](https://www.crisistextline.org/)
+        - [Self-Care Ideas](https://www.verywellmind.com/self-care-strategies-overall-stress-reduction-3144729)
+        """)
+
+        st.sidebar.title("About")
+        st.sidebar.info("This chat application uses advanced AI to provide mental health support. While it can offer helpful advice, it's not a substitute for professional medical help.")
+
+    def get_mental_health_tip(self) -> str:
+        tips = [
+            "Practice mindfulness for 5 minutes each day to reduce stress and anxiety.",
+            "Reach out to a friend or family member today - social connections are crucial for mental health.",
+            "Try a new hobby or activity to stimulate your mind and boost your mood.",
+            "Get at least 7-8 hours of sleep tonight for better emotional regulation tomorrow.",
+            "Take a short walk outside to boost your mood and get some vitamin D.",
+        ]
+        return random.choice(tips)
+
+def main():
+    chatbot = MentalHealthChatbot()
+    chatbot.run()
+
+if __name__ == "__main__":
+    main()
