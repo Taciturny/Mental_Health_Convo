@@ -11,3 +11,4 @@ pydantic-settings == 2.4.0
 pytest == 8.3.2
 plotly == 5.23.0
 cohere == 5.8.1
+db-sqlite3
