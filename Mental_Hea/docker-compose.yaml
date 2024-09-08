@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  monitoring_db:
+    image: postgres:15
+    container_name: monitoring_db
+    environment:
+      POSTGRES_USER: tacy
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: chatbot_monitoring
+    volumes:
+      - monitoring_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  grafana:
+    image: grafana/grafana:9.6.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: tacy
+    depends_on:
+      - monitoring_db
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  qdrant:
+    image: qdrant/qdrant:0.10.1
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT_API_KEY=your_api_key
+
+volumes:
+  monitoring_data:
+  grafana_data:
+  qdrant_data:
+
+  # deployment_db:
+  #   image: postgres:15
+  #   container_name: deployment_db
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     DEPLOYMENT_DB: ${DEPLOYMENT_DB}
+  #   volumes:
+  #     - deployment_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   monitoring_data:
+#   grafana_data:
+  # deployment_data:
+
+# env_file:
+#   - ./src/.env

@@ -7,10 +7,11 @@ sys.path.append(str(project_root))
 import time
 import streamlit as st
 import uuid
+import plotly.express as px
+import pandas as pd
 import plotly.graph_objects as go
 from typing import Dict, Any
-from .database_monitor import Database
-from src.core.utils import is_relevant_query
+from database_monitor import Database
 from src.core.search_engine import SearchEngine
 
 
@@ -39,6 +40,7 @@ class MentalHealthMonitoringApp:
 
         with col2:
             self.display_metrics()
+            self.display_metrics_visualization()
 
     def main_interface(self):
         st.header("Query Interface")
@@ -168,7 +170,9 @@ class MentalHealthMonitoringApp:
             'engagement_rate': _self.db.get_user_engagement_rate(),
             'error_rate': _self.db.get_error_rate(),
             'model_performance': _self.db.get_model_performance_stats(),
-            'search_type_stats': _self.db.get_search_type_stats()
+            'search_type_stats': _self.db.get_search_type_stats(),
+            'daily_conversations': _self.db.get_daily_conversation_count(last_n_days=5),
+            'feedback_distribution': _self.db.get_feedback_distribution()
         }
 
     def display_metrics(self):
@@ -198,6 +202,57 @@ class MentalHealthMonitoringApp:
             fig = go.Figure(data=[go.Pie(labels=list(metrics['search_type_stats'].keys()), values=list(metrics['search_type_stats'].values()))])
             fig.update_layout(title_text="Search Type Distribution")
             st.sidebar.plotly_chart(fig, use_container_width=True)
+
+    def display_metrics_visualization(self):
+        st.sidebar.subheader("Metrics Visualization")
+        
+        metrics = self.get_fresh_metrics()
+        
+        visualization_options = [
+            "Search Type Distribution",
+            "Daily Conversation Trend",
+            "Feedback Distribution",
+            "Model Performance Comparison"
+        ]
+        
+        selected_visualization = st.sidebar.radio("Select Metric to Visualize:", visualization_options)
+        
+        if selected_visualization == "Search Type Distribution":
+            self.plot_search_type_distribution(metrics['search_type_stats'])
+        elif selected_visualization == "Daily Conversation Trend":
+            self.plot_daily_conversation_trend(metrics['daily_conversations'])
+        elif selected_visualization == "Feedback Distribution":
+            self.plot_feedback_distribution(metrics['feedback_distribution'])
+        elif selected_visualization == "Model Performance Comparison":
+            self.plot_model_performance_comparison(metrics['model_performance'])
+
+    def plot_search_type_distribution(self, search_type_stats):
+        fig = go.Figure(data=[go.Pie(labels=list(search_type_stats.keys()), values=list(search_type_stats.values()))])
+        fig.update_layout(title_text="Search Type Distribution")
+        st.plotly_chart(fig, use_container_width=True)
+
+    def plot_daily_conversation_trend(self, daily_conversations):
+        df = pd.DataFrame(daily_conversations, columns=['date', 'count'])
+        fig = px.line(df, x='date', y='count', title='Daily Conversation Trend')
+        st.plotly_chart(fig, use_container_width=True)
+
+    def plot_feedback_distribution(self, feedback_distribution):
+        fig = go.Figure(data=[go.Bar(x=list(feedback_distribution.keys()), y=list(feedback_distribution.values()))])
+        fig.update_layout(title_text="Feedback Distribution", xaxis_title="Feedback", yaxis_title="Count")
+        st.plotly_chart(fig, use_container_width=True)
+
+    def plot_model_performance_comparison(self, model_performance):
+        models = [model['model_type'] for model in model_performance]
+        positive_feedback_rates = [model['positive_feedback_rate'] for model in model_performance]
+        avg_confidence_scores = [model['avg_confidence_score'] for model in model_performance]
+
+        fig = go.Figure(data=[
+            go.Bar(name='Positive Feedback Rate', x=models, y=positive_feedback_rates),
+            go.Bar(name='Avg Confidence Score', x=models, y=avg_confidence_scores)
+        ])
+        fig.update_layout(title_text="Model Performance Comparison", barmode='group')
+        st.plotly_chart(fig, use_container_width=True)
+
 
 if __name__ == "__main__":
     app = MentalHealthMonitoringApp()

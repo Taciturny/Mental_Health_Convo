@@ -301,3 +301,33 @@ class Database:
         """
         result = self.execute_query(query)
         return round(result[0][0], 2) if result and result[0][0] is not None else None
+    
+
+   
+
+    def get_daily_conversation_count(self, last_n_days: int = 5) -> List[Dict[str, int]]:
+        """Get the count of conversations for each day over the last n days."""
+        query = """
+        SELECT 
+            DATE(query_timestamp) as day,
+            COUNT(*) as conversation_count
+        FROM conversations
+        WHERE query_timestamp >= NOW() - INTERVAL %s
+        GROUP BY DATE(query_timestamp)
+        ORDER BY day
+        """
+        result = self.execute_query(query, (f"{last_n_days} days",))
+        return [{"day": row[0], "conversation_count": row[1]} for row in result]
+
+    def get_feedback_distribution(self) -> Dict[str, int]:
+        """Get the distribution of feedback ratings."""
+        query = """
+        SELECT 
+            feedback_rating, 
+            COUNT(*) as count
+        FROM feedback
+        GROUP BY feedback_rating
+        ORDER BY feedback_rating
+        """
+        result = self.execute_query(query)
+        return {str(row[0]): row[1] for row in result}
