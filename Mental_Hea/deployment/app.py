@@ -13,9 +13,9 @@ import plotly.express as px
 import pandas as pd
 
 
-from .database import SQLiteDatabase
-from .cohere_model import CohereModel
-from .search_engine import SearchEngine
+from database import SQLiteDatabase
+from cohere_model import CohereModel
+from search_engine import SearchEngine
 from src.core.config import settings
 from src.core.utils import is_relevant_query
 
