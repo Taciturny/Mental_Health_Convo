@@ -1,6 +1,6 @@
 streamlit == 1.37.1
 transformers == 4.40.2
-qdrant-client = 1.11.0
+qdrant-client == 1.11.0
 scikit-learn == 1.4.2
 torch == 2.3.0
 accelerate == 0.33.0
