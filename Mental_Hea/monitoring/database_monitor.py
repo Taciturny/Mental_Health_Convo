@@ -3,6 +3,7 @@ import os
 import logging
 from typing import List, Tuple, Dict, Optional, Any
 from psycopg2.pool import SimpleConnectionPool
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -301,33 +302,30 @@ class Database:
         """
         result = self.execute_query(query)
         return round(result[0][0], 2) if result and result[0][0] is not None else None
-    
-
    
 
-    def get_daily_conversation_count(self, last_n_days: int = 5) -> List[Dict[str, int]]:
-        """Get the count of conversations for each day over the last n days."""
+    def get_daily_conversation_count(self, last_n_days: int = 30) -> List[Tuple[datetime.date, int]]:
+        """Get the daily conversation count for the last n days."""
         query = """
-        SELECT 
-            DATE(query_timestamp) as day,
-            COUNT(*) as conversation_count
+        SELECT DATE(query_timestamp) as date, COUNT(*) as count
         FROM conversations
-        WHERE query_timestamp >= NOW() - INTERVAL %s
+        WHERE query_timestamp > CURRENT_DATE - INTERVAL '%s days'
         GROUP BY DATE(query_timestamp)
-        ORDER BY day
+        ORDER BY date ASC
         """
-        result = self.execute_query(query, (f"{last_n_days} days",))
-        return [{"day": row[0], "conversation_count": row[1]} for row in result]
+        result = self.execute_query(query, (last_n_days,))
+        logger.info(f"Retrieved daily conversation count for the last {last_n_days} days")
+        return result
 
     def get_feedback_distribution(self) -> Dict[str, int]:
         """Get the distribution of feedback ratings."""
         query = """
-        SELECT 
-            feedback_rating, 
-            COUNT(*) as count
+        SELECT feedback, COUNT(*) as count
         FROM feedback
-        GROUP BY feedback_rating
-        ORDER BY feedback_rating
+        GROUP BY feedback
+        ORDER BY count DESC
         """
         result = self.execute_query(query)
-        return {str(row[0]): row[1] for row in result}
+        feedback_distribution = dict(result)
+        logger.info(f"Retrieved feedback distribution: {feedback_distribution}")
+        return feedback_distribution
