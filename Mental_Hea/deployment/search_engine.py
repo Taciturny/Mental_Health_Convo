@@ -25,6 +25,8 @@ class SearchEngine:
         self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
         self.llm_model = EnsembleModel.get_instance()
 
+
+
     def search_dense(self, query_text: str):
         try:
             dense_embeddings, _ = self.embeddings_model.embeddings([query_text])
@@ -32,7 +34,7 @@ class SearchEngine:
                 collection_name=self.collection_name,
                 query=dense_embeddings[0],
                 using="text-dense",
-                limit=3,
+                limit=5,
                 with_payload=True
             )
             return results
@@ -47,7 +49,7 @@ class SearchEngine:
                 collection_name=self.collection_name,
                 query=late_embeddings[0],
                 using="text-late",
-                limit=2,
+                limit=5,
                 with_payload=True
             )
             return results

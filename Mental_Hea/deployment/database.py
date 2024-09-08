@@ -162,7 +162,15 @@ class SQLiteDatabase:
             GROUP BY feedback_type
         '''
         results = self.fetch_all(query)
-        return dict(results)
+        feedback_dict = dict(results)
+        
+        # Ensure all feedback types are represented, even if count is 0
+        all_feedback_types = ['Helpful', 'Not Helpful', 'Needs Improvement']
+        for feedback_type in all_feedback_types:
+            if feedback_type not in feedback_dict:
+                feedback_dict[feedback_type] = 0
+        
+        return feedback_dict
 
     def get_user_stats(self, user_id):
         query = '''
@@ -238,8 +246,17 @@ class SQLiteDatabase:
     def get_relevance_stats(self):
         query = '''
             SELECT relevance, COUNT(*) as count
-            FROM conversations
+            FROM conversation_metrics
             GROUP BY relevance
         '''
         results = self.fetch_all(query)
         return dict(results)
+
+
+    def update_conversation_relevance(self, conversation_id: str, relevance: str):
+        query = '''
+            UPDATE conversation_metrics
+            SET relevance = ?
+            WHERE conversation_id = ?
+        '''
+        self.execute_query(query, (relevance, conversation_id))
