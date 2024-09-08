@@ -133,7 +133,8 @@ If you want to use the clean, preprocessed data, skip the data ingestion step an
 python -m src.main
 ```
 When you run the scrpt, you will have to input a query,  Here is an example of what you will response you will see
-![hybrid-search](Images/hybrid1.png)
+![hybrid-search](Mental_Hea/Images/hybrid1.png)
+
 
 ### Step 4: Evaluation
 Before running the evaluation script, start your MLflow UI, which was installed as part of the requirements:
@@ -147,7 +148,7 @@ Multiple searches (dense, late-interaction, and hybrid) was evaluated. The best-
 python -m evaluation.qdrant_evaluation
 ```
 When you run the script, check your MLflow UI to view the runs. You can visualize the different metrics for the three search methods. Below are examples of two metrics: Mean Average Precision (MAP) and Normalized Discounted Cumulative Gain (NDCG)
-![map](Images/mean_map_before_optimzation.png)          ![ndcg](Images/mean_ndcg_before_optimization.png)
+![map](Mental_Hea/Images/mean_map_before_optimzation.png)          ![ndcg](Mental_Hea/Images/mean_ndcg_before_optimization.png)
 
 `RAG Evaluation`
 ```bash
@@ -164,7 +165,7 @@ We have to monitor our streamlit app
 
 ### Step 7: Tests (Unit and Integration Tests)
 
-1. To run the unit test, execute this:
+1. To run the `unit test`, execute this:
 
     ```bash
       pytest tests/unit/test_core_components.py
@@ -173,7 +174,7 @@ We have to monitor our streamlit app
 2. Go to the `integration_test` folder and run pytest for the tests:
 
     ```bash
-    pipenv run pytest tests/
+    pytest tests/integration/test_core_components.py
     ```
 
 3. Additionally, you can run `pylint` on your project by executing the following command from the project's root directory:
