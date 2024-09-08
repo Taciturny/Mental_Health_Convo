@@ -86,8 +86,7 @@ Mental_Health_Convo/Mental_Hea/
     ├── .github/
     │   └── workflows/
     │       └── ci_cd_pipeline.yaml
-    ├── Jenkinsfile
-    └── Dockerfile
+
 
 ```
 
@@ -144,6 +143,7 @@ mlflow ui
 
 `Retrieval Evaluation`
 Multiple searches (dense, late-interaction, and hybrid) was evaluated. The best-performing method (dense) is selected for use in deployment. To perform this evaluation, run the following script:
+
 ```bash
 python -m evaluation.qdrant_evaluation
 ```
@@ -159,32 +159,34 @@ python -m evaluation.rag_evaluation
 We have to monitor our streamlit app
 
 
+### Step 6: Deployment
+1. Create Accounts and Obtain API Keys
 
+  * Sign up for a free-tier account with Qdrant Cloud to obtain your URL and API key [Quadrant Cloud](https://cloud.qdrant.io/login).
+  * Sign up for a free-tier account with Cohere to get your trial API key [Cohere API](https://dashboard.cohere.com/api-keys).
+  * Save these credentials in your .env file.
 
+2. Upsert Data to Qdrant Cloud
+   Before deploying your app, run main.py to upsert data to Qdrant Cloud (using a sample size of your choice). Execute the following command:
+
+```bash
+python -m deployment.main
+```
+
+3. Deploy and Access the App
+If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Render. You can access it here.
 
 
 ### Step 7: Tests (Unit and Integration Tests)
 
-1. To run the `unit test`, execute this:
+1. To run the unit tests, execute:
 
     ```bash
       pytest tests/unit/test_core_components.py
     ```
 
-2. Go to the `integration_test` folder and run pytest for the tests:
+2. To run the integration tests, execute:
 
     ```bash
-    pytest tests/integration/test_core_components.py
-    ```
-
-3. Additionally, you can run `pylint` on your project by executing the following command from the project's root directory:
-
-    ```bash
-    pipenv run pylint --recursive=y .
-    ```
-
-4. Navigate to the `unit_tests` folder and run pytest for the tests:
-
-    ```bash
-    pipenv run pytest tests/
+    pytest tests/integration/test_integration.py
     ```
