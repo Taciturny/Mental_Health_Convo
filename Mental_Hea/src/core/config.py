@@ -9,7 +9,7 @@
 
 import os
 from pathlib import Path
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     COHERE_API_KEY: str = os.environ.get("COHERE_API_KEY", "")
