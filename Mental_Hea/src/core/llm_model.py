@@ -1,7 +1,15 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, GPT2LMHeadModel, AutoModelForCausalLM, pipeline
-import torch
-import math
 import threading
+import math
+from typing import List
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    GPT2LMHeadModel
+)       # [import-error]
+
+from src.core.config import settings
 
 
 class EnsembleModel:
@@ -24,136 +32,81 @@ class EnsembleModel:
                     self._initialized = True
 
     def _initialize(self):
-        # print("Initializing models...")  # Debug print
         self.models = {
-            'distilbert': {
-                'tokenizer': AutoTokenizer.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english'),
-                'model': AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english')
-            },
-            'gpt2': {
-                'tokenizer': AutoTokenizer.from_pretrained('gpt2-medium'),
-                'model': GPT2LMHeadModel.from_pretrained('gpt2-medium')
-            },
-            'dialogpt': {
-                'tokenizer': AutoTokenizer.from_pretrained('microsoft/DialoGPT-medium'),
-                'model': AutoModelForCausalLM.from_pretrained('microsoft/DialoGPT-medium')
-            },
-            'distilgpt2': {
-                'tokenizer': AutoTokenizer.from_pretrained('distilgpt2'),
-                'model': GPT2LMHeadModel.from_pretrained('distilgpt2')
-            }
+            'gpt2': self._load_model(settings.GPT2_MODEL, GPT2LMHeadModel),
+            'dialogpt': self._load_model(settings.DIALOGPT_MODEL, AutoModelForCausalLM),
+            'distilgpt2': self._load_model(settings.DISTILGPT2_MODEL, GPT2LMHeadModel)
         }
+        
+        self.sentiment_model = self._load_model(
+            settings.SENTIMENT_MODEL,
+            AutoModelForSequenceClassification
+        )
+        self.sentiment_tokenizer = AutoTokenizer.from_pretrained(settings.SENTIMENT_MODEL)
 
+    def _load_model(self, model_name, model_class):
+        return {
+            'model': model_class.from_pretrained(model_name),
+            'tokenizer': AutoTokenizer.from_pretrained(model_name)
+        }
+    
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
-    def basic_post_process(self, response: str, query: str) -> str:
-        # Remove common prompt artifacts and clean up the response
-        artifacts = ["Response:", "Q:", "q:",  "User Query:", "A:", "a:",  "Context:", "Question:", "Answer:"]
-        for artifact in artifacts:
-            response = response.replace(artifact, "")
-        
-        response = response.strip()
-        sentences = response.split('.')
-        cleaned_sentences = [sentence.strip().capitalize() for sentence in sentences if sentence.strip()]
-        final_response = '. '.join(cleaned_sentences)
-        
-        return final_response
-
-
-
-    def generate_text(self, prompt, max_new_tokens=50, num_return_sequences=1, temperature=0.8, top_k=50, top_p=0.95, repetition_penalty=1.0, do_sample=True):
-        all_sequences = []
-
-        for model_name, model_dict in self.models.items():
-            if model_name == 'distilbert':  # Skip models not suitable for text generation
-                continue
-
-            tokenizer = model_dict['tokenizer']
-            model = model_dict['model']
-
-            # Improved prompt engineering
-            enhanced_prompt = self.enhance_prompt(prompt, model_name)
-
-            inputs = tokenizer(enhanced_prompt, return_tensors="pt", truncation=True, max_length=512)
-            
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    # max_new_tokens=max_new_tokens,
-                    max_new_tokens=min(max_new_tokens, 1024 - len(inputs['input_ids'][0])),
-                    num_return_sequences=num_return_sequences,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p,
-                    repetition_penalty=repetition_penalty,
-                    do_sample=do_sample,
-                    pad_token_id=tokenizer.eos_token_id
-                )
-
-            sequences = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            for sequence in sequences:
-                cleaned_sequence = self.post_process_response(sequence, prompt)
-                all_sequences.append(cleaned_sequence)
-
-        return all_sequences
-
-    def enhance_prompt(self, prompt, model_name):
-        # Improved prompt engineering
-        if 'gpt' in model_name.lower():
-            return f"As an AI assistant specializing in mental health, please provide a helpful and empathetic response to the following query: {prompt}"
-        else:
-            return prompt
-
-    def post_process_response(self, response, query):
-        # Improved post-processing
-        response = self.basic_post_process(response, query)
-        
-        # Remove repetitions of the query
-        response = response.replace(query, "")
-        
-        # Ensure the response is not empty after processing
-        if not response.strip():
-            response = "I apologize, but I couldn't generate a proper response. Could you please rephrase your question?"
-        
-        return response.strip()
 
     def compute_fluency(self, response: str) -> float:
-        # Load distilgpt2 model and tokenizer
         tokenizer = self.models['distilgpt2']['tokenizer']
         model = self.models['distilgpt2']['model']
         
-        # Encode the response
         inputs = tokenizer(response, return_tensors='pt', max_length=200, truncation=True)
         
-        # Calculate loss as a measure of fluency
         with torch.no_grad():
             outputs = model(**inputs, labels=inputs["input_ids"])
             loss = outputs.loss.item()
         
-        # Convert loss to fluency score (lower loss means higher fluency)
-        fluency_score = 1.0 / (1.0 + loss)
-        return fluency_score
+        return 1.0 / (1.0 + loss)
 
     def compute_empathy(self, response: str) -> float:
-        sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-        sentiments = sentiment_analyzer(response[:512])  # Limit input to 512 tokens
-        for sentiment in sentiments:
-            if sentiment['label'] == 'POSITIVE' and sentiment['score'] > 0.8:
-                return 1.0
-            elif sentiment['label'] == 'NEGATIVE' and sentiment['score'] > 0.8:
-                return 0.0
-        return 0.5
+        # Use the sentiment model for empathy computation
+        tokenizer = self.sentiment_model['tokenizer']
+        model = self.sentiment_model['model']
+        
+        inputs = tokenizer(response, return_tensors='pt', max_length=512, truncation=True)
+        
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            probabilities = torch.softmax(logits, dim=1)
+            positive_prob = probabilities[0][1].item()
+        
+        if positive_prob > 0.8:
+            return 1.0
+        elif positive_prob < 0.2:
+            return 0.0
+        else:
+            return 0.5
 
     def compute_sentiment(self, text: str) -> float:
-        sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-        result = sentiment_analyzer(text[:512])[0]  # Limit input to 512 tokens
-        return result['score'] if result['label'] == 'POSITIVE' else 1 - result['score']
+        return self._compute_sentiment(text)
+
+    def _compute_sentiment(self, text: str) -> float:
+        tokenizer = self.sentiment_model['tokenizer']
+        model = self.sentiment_model['model']
+        
+        inputs = tokenizer(text, return_tensors='pt', max_length=512, truncation=True)
+        
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            probabilities = torch.softmax(logits, dim=1)
+            positive_prob = probabilities[0][1].item()
+        
+        return positive_prob
 
     def compute_perplexity(self, text: str) -> float:
+        # No change needed here
         tokenizer = self.models['gpt2']['tokenizer']
         model = self.models['gpt2']['model']
         
@@ -166,3 +119,81 @@ class EnsembleModel:
             loss = outputs.loss
         
         return math.exp(loss.item())
+
+
+    def enhance_prompt(self, prompt, model_name):
+        return (f"As an AI assistant specializing in mental health, please provide a "
+                f"helpful and empathetic response to the following query: {prompt}")
+
+    def generate_text(self, prompt, model_name='ensemble'):
+        if model_name.lower() == 'ensemble':
+            return self._generate_ensemble(prompt)
+        elif model_name.lower() in self.models:
+            return self._generate_single_model(model_name, prompt)
+        else:
+            raise ValueError(f"Unknown model name: {model_name}")
+
+    def _generate_single_model(self, model_name, prompts):
+        model_dict = self.models[model_name.lower()]
+        tokenizer = model_dict['tokenizer']
+        model = model_dict['model']
+
+        if isinstance(prompts, str):
+            prompts = [prompts]
+
+        all_sequences = []
+        for prompt in prompts:
+            enhanced_prompt = self.enhance_prompt(prompt, model_name)
+            inputs = tokenizer(enhanced_prompt, return_tensors="pt", truncation=True, max_length=512)
+            
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=min(settings.MAX_NEW_TOKENS, 1024 - len(inputs['input_ids'][0])),
+                    num_return_sequences=settings.NUM_RETURN_SEQUENCES,
+                    temperature=settings.TEMPERATURE,
+                    top_k=settings.TOP_K,
+                    top_p=settings.TOP_P,
+                    repetition_penalty=settings.REPETITION_PENALTY,
+                    do_sample=settings.DO_SAMPLE,
+                    pad_token_id=tokenizer.eos_token_id
+                )
+
+            sequences = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            all_sequences.extend([self.post_process_response(sequence, prompt) for sequence in sequences])
+
+        return all_sequences
+
+
+
+    def _generate_ensemble(self, prompt):
+        all_sequences = []
+        for model_name in self.models.keys():
+            sequences = self._generate_single_model(model_name, prompt)
+            all_sequences.extend(sequences)
+        return all_sequences
+
+
+
+    def post_process_response(self, response: str, query: str) -> str:
+        artifacts = ["Response:", "Q:", "q:", "User Query:", "A:", "a:", "Context:", "Question:", "Answer:"]
+        for artifact in artifacts:
+            response = response.replace(artifact, "")
+        
+        response = response.strip()
+        sentences = response.split('.')
+        cleaned_sentences = [sentence.strip().capitalize() for sentence in sentences if sentence.strip()]
+        response = '. '.join(cleaned_sentences)
+        
+        # Remove the query from the response
+        if "\n\nUser:" in query:
+            query_without_context = query.split("\n\nUser:")[-1].strip()
+        else:
+            query_without_context = query.strip()
+        response = response.replace(query_without_context, "")
+        
+        if not response.strip():
+            response = ("I apologize, but I couldn't generate a proper response. "
+                        "Could you please rephrase your question?")
+        
+        return response.strip()

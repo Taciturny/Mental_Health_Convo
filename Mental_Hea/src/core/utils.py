@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-project_root = Path(__file__).parent  # Point to the 'src' directory
+project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
 import re
@@ -8,9 +8,11 @@ import numpy as np
 from typing import List, Tuple, Dict
 import tqdm
 import logging
+from transformers import pipeline
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.data_loader import DataLoader
 from src.core.qdrant_manager import QdrantManager
+from .config import settings
 
 
 
@@ -19,9 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 
-def initialize_qdrant(collection_name: str, host: str = "localhost", port: int = 6333) -> QdrantManager:
-    qdrant_manager = QdrantManager(host=host, port=port)
+def initialize_qdrant(collection_name: str) -> QdrantManager:
+    # Check if deployment mode is cloud or local
+    if settings.DEPLOYMENT_MODE == 'cloud':
+        # Use cloud configuration
+        qdrant_manager = QdrantManager(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+    else:
+        # Use local configuration
+        qdrant_manager = QdrantManager(host="localhost", port=6333)
+    
+    # Create collection if it does not exist
     qdrant_manager.create_collection_if_not_exists(collection_name)
+    
     return qdrant_manager
 
 
@@ -50,10 +61,12 @@ def upload_data_to_qdrant(qdrant_manager: QdrantManager, collection_name: str, d
     qdrant_manager.prepare_and_upload_points(data, dense_embeddings, late_embeddings, qdrant_manager.client, collection_name)
 
 
+# Global sentiment analyzer
+sentiment_analyzer = pipeline("sentiment-analysis")
 
 def is_relevant_query(query: str, relevant_keywords: List[str]) -> bool:
     """
-    Check if the query is relevant based on a list of keywords.
+    Check if the query is relevant based on keywords and sentiment analysis.
     
     Args:
     query (str): The user's input query
@@ -62,5 +75,28 @@ def is_relevant_query(query: str, relevant_keywords: List[str]) -> bool:
     Returns:
     bool: True if the query is relevant, False otherwise
     """
-    query_words = re.findall(r'\w+', query.lower())
-    return any(keyword in query_words for keyword in relevant_keywords)
+    # Check for exact keyword matches
+    query_words = set(query.lower().split())
+    if any(keyword in query_words for keyword in relevant_keywords):
+        return True
+    
+    # Use sentiment analysis
+    result = sentiment_analyzer(query)[0]
+    
+    # Consider negative sentiment as potentially relevant to mental health
+    if result['label'] == 'NEGATIVE' and result['score'] > 0.7:
+        return True
+    
+    return False
+
+
+def merge_search_results(dense_results, late_results, hybrid_results, weights=(0.3, 0.3, 0.4)):
+    all_results = {}
+    for results, weight in zip([dense_results, late_results, hybrid_results], weights):
+        for result in results:
+            if result.id not in all_results:
+                all_results[result.id] = {'score': 0, 'payload': result.payload}
+            all_results[result.id]['score'] += result.score * weight
+    
+    merged_results = sorted(all_results.items(), key=lambda x: x[1]['score'], reverse=True)
+    return [{'id': id, 'score': data['score'], 'payload': data['payload']} for id, data in merged_results]

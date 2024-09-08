@@ -5,7 +5,7 @@ import time
 import numpy as np
 from qdrant_client import QdrantClient, models
 from tenacity import retry, stop_after_attempt, wait_exponential
-from .config import settings
+# from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +17,13 @@ from qdrant_client.http.models import PointStruct
 logger = logging.getLogger(__name__)
 
 class QdrantManager:
-    def __init__(self, host: str = "localhost", port: int = 6333, url: str = None, api_key: str = None):
+    def __init__(self, url: str = None, api_key: str = None, host: str = "localhost", port: int = 6333):
         if url and api_key:
-            self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=600)
+            self.client = QdrantClient(url=url, api_key=api_key, timeout=600)
+            logger.info("Initialized Qdrant client with cloud settings.")
         else:
             self.client = QdrantClient(host=host, port=port, timeout=600)
+            logger.info("Initialized Qdrant client with local settings.")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def create_collection(self, collection_name: str, retries: int = 3, delay: int = 5):

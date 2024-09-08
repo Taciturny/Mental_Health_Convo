@@ -26,6 +26,7 @@ class SearchEngine:
         self.client = QdrantClient("http://localhost:6333")
         self.llm_model = EnsembleModel.get_instance()
 
+
     def _init_collection(self):
         """Initialize the Qdrant collection if it doesn't exist."""
         try:
