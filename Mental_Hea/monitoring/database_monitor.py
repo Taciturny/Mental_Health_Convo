@@ -108,14 +108,28 @@ class Database:
         )
         logger.info(f"Stored conversation with ID: {conversation_id}")
         return str(conversation_id)
-
+    
     def store_feedback(self, conversation_id: str, feedback: str):
         """Store feedback for a conversation."""
-        self.execute_query(
-            "INSERT INTO feedback (conversation_id, feedback) VALUES (%s::uuid, %s)",
-            (conversation_id, feedback)
-        )
-        logger.info(f"Stored feedback for conversation ID: {conversation_id}")
+        try:
+            self.execute_query(
+                "INSERT INTO feedback (conversation_id, feedback) VALUES (%s::uuid, %s)",
+                (conversation_id, feedback)
+            )
+            logger.info(f"Stored feedback for conversation ID: {conversation_id}")
+        except Exception as e:
+            logger.error(f"Error storing feedback: {str(e)}")
+            # Check if the conversation exists
+            conversation_exists = self.execute_query(
+                "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = %s::uuid)",
+                (conversation_id,)
+            )[0][0]
+            if not conversation_exists:
+                logger.error(f"Conversation with ID {conversation_id} does not exist")
+                raise ValueError(f"Conversation with ID {conversation_id} does not exist")
+            else:
+                raise  # Re-raise the original exception if the conversation exists
+
 
     def get_conversation_stats(self) -> Dict[str, int]:
         """Get conversation statistics."""
@@ -162,19 +176,21 @@ class Database:
         logger.info(f"Retrieved user engagement stats for the last {days} days")
         return engagement_stats
     
+
     def get_model_performance_stats(self) -> List[Dict[str, Any]]:
         """Get model performance statistics."""
-        result = self.execute_query("""
-            SELECT 
-                c.model_type,
-                AVG(CASE WHEN f.feedback IN ('Somewhat Helpful', 'Very Helpful') THEN 1 ELSE 0 END) as positive_feedback_rate,
-                AVG(LENGTH(c.response)) as avg_response_length,
-                COUNT(*) as usage_count,
-                AVG(c.confidence_score) as avg_confidence_score
-            FROM conversations c
-            LEFT JOIN feedback f ON c.id = f.conversation_id
-            GROUP BY c.model_type
-        """)
+        query = """
+        SELECT 
+            c.model_type,
+            AVG(CASE WHEN f.feedback IN ('Somewhat Helpful', 'Very Helpful') THEN 1 ELSE 0 END) as positive_feedback_rate,
+            AVG(LENGTH(c.response)) as avg_response_length,
+            COUNT(*) as usage_count,
+            AVG(c.confidence_score) as avg_confidence_score
+        FROM conversations c
+        LEFT JOIN feedback f ON c.id = f.conversation_id
+        GROUP BY c.model_type
+        """
+        result = self.execute_query(query)
         performance_stats = [
             {
                 "model_type": stat[0],
@@ -190,15 +206,15 @@ class Database:
 
     def get_average_response_time(self) -> Optional[float]:
         query = """
-        SELECT AVG(EXTRACT(EPOCH FROM (response_timestamp - query_timestamp))) as avg_response_time
+        SELECT AVG(response_time) as avg_response_time
         FROM conversations
-        WHERE response_timestamp > query_timestamp
+        WHERE response_time IS NOT NULL AND response_time > 0
         """
         result = self.execute_query(query)
         avg_response_time = result[0][0] if result and result[0][0] is not None else None
         logger.info(f"Average response time: {avg_response_time}")
         return avg_response_time
-
+    
     
     def get_user_engagement_rate(self) -> Optional[float]:
         query = """
@@ -226,13 +242,13 @@ class Database:
         """
         return self.execute_query(query)[0]
     
-
     def get_error_rate(self) -> Optional[float]:
         query = """
         SELECT 
             COUNT(CASE WHEN feedback IN ('Very Unhelpful', 'Somewhat Unhelpful') THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) as error_rate
         FROM conversations
         LEFT JOIN feedback ON conversations.id = feedback.conversation_id
+        WHERE feedback IS NOT NULL
         """
         result = self.execute_query(query)
         error_rate = round(result[0][0], 2) if result and result[0][0] is not None else None
