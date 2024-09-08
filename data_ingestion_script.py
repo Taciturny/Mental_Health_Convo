@@ -160,6 +160,3 @@ if __name__ == "__main__":
     csv_path = 'data/Mental_Health_FAQ.csv'
     output_path = 'data/preprocessed_data.parquet'
     main(parquet_path, csv_path, output_path)
-
-
-
