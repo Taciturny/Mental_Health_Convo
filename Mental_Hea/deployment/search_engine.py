@@ -7,8 +7,7 @@ sys.path.append(str(project_root))
 
 import logging
 from src.core.embeddings_model import EmbeddingsModel
-from qdrant_client import QdrantClient, models
-from src.core.llm_model import EnsembleModel  
+from qdrant_client import QdrantClient, models 
 from src.core.config import settings
 
 
@@ -23,7 +22,6 @@ class SearchEngine:
         self.collection_name = collection_name
         self.embeddings_model = EmbeddingsModel.get_instance()
         self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
-        self.llm_model = EnsembleModel.get_instance()
 
 
 
