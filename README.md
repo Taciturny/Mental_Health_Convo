@@ -107,7 +107,7 @@ cd Mental_Health_Convo/Mental_Hea
 ```bash 
 conda create -n myenv python=3.10.14
 conda activate myenv
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ### Step 2: Start Docker Compose and Execute the First Script
@@ -157,7 +157,7 @@ python -m evaluation.rag_evaluation
 
 ### Step 5: Monitoring
 We have to monitor our streamlit app
-
+You can watch the short clip of the monitoring app(https://drive.google.com/file/d/1PwFlH2nVBDL7SUkIGI8xUavKIRqwgwTc/view?usp=sharing). As you will see, he app, is quiet slow because we are using loaclhost and cpu for open soue models.
 
 ### Step 6: Deployment
 1. Create Accounts and Obtain API Keys
@@ -167,6 +167,7 @@ We have to monitor our streamlit app
   * Save these credentials in your .env file.
 
 2. Upsert Data to Qdrant Cloud
+
    Before deploying your app, run main.py to upsert data to Qdrant Cloud (using a sample size of your choice). Execute the following command:
 
 ```bash
@@ -174,7 +175,8 @@ python -m deployment.main
 ```
 
 3. Deploy and Access the App
-If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Render. You can access it here.
+
+  If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Render. You can access it here [App](https://mental-health-chatbot-jb1e.onrender.com).
 
 
 ### Step 7: Tests (Unit and Integration Tests)
