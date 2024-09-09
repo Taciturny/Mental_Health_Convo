@@ -40,23 +40,3 @@ volumes:
   monitoring_data:
   grafana_data:
   qdrant_data:
-
-  # deployment_db:
-  #   image: postgres:15
-  #   container_name: deployment_db
-  #   environment:
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     DEPLOYMENT_DB: ${DEPLOYMENT_DB}
-  #   volumes:
-  #     - deployment_data:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-
-# volumes:
-#   monitoring_data:
-#   grafana_data:
-  # deployment_data:
-
-# env_file:
-#   - ./src/.env
