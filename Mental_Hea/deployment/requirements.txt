@@ -4,3 +4,4 @@ plotly
 cohere == 5.8.1
 db-sqlite3
 python-dotenv
+pydantic-settings == 2.4.0
