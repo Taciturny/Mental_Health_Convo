@@ -162,7 +162,7 @@ class MentalHealthMonitoringApp:
         else:
             st.warning("We apologize that the response wasn't helpful. We'll use your feedback to improve our system.")
 
-    @st.cache_data(ttl=60)  # Cache for 60 seconds
+    @st.cache_data(ttl=1)  # Cache for 1 second
     def get_fresh_metrics(_self):
         return {
             'total_conversations': _self.db.get_conversation_stats()['total_conversations'],
