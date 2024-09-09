@@ -18,7 +18,6 @@ from cohere_model import CohereModel
 from search_engine import SearchEngine
 from src.core.config import settings
 
-
 # Load .env file if it exists (for local development)
 env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -26,19 +25,17 @@ load_dotenv(dotenv_path=env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+QDRANT_URL = "https://e932e81a-113e-440f-96c0-c17b530bfe79.europe-west3-0.gcp.cloud.qdrant.io:6333/dashboard"
+COLLECTION_NAME_CLOUD = "mental_health_collection"
+
 st.set_page_config(page_title="Mental Health Chatbot", layout="wide", initial_sidebar_state="expanded")
 
 class MentalHealthChatbot:
     def __init__(self):
-        self.search_engine = SearchEngine(settings.COLLECTION_NAME_CLOUD)
+        self.search_engine = SearchEngine(COLLECTION_NAME_CLOUD)
         self.llm_model = CohereModel(settings.COHERE_API_KEY)
         self.database = SQLiteDatabase()
         self.database.connect()
-        self.relevant_keywords = [
-            'depression', 'anxiety', 'stress', 'therapy', 'mental', 'health',
-            'counseling', 'psychiatry', 'psychology', 'disorder', 'treatment',
-            'medication', 'symptoms', 'diagnosis', 'support', 'wellbeing', 'burnout'
-        ]
 
     def run(self):
         try:
@@ -119,7 +116,7 @@ class MentalHealthChatbot:
                     max_score = max(max_score, point.score)
                     logger.info(f"Answer: {payload.get('answer', 'N/A')}, Score: {point.score}")
             
-            if max_score < 0.5:
+            if max_score < 0.3:
                 response = ("I'm not confident I have accurate information to answer your question. "
                             "Could you please rephrase your question or ask about a different mental health topic? "
                             "I'm here to provide reliable information and support related to mental health.")
@@ -194,15 +191,18 @@ class MentalHealthChatbot:
         try:
             with self.get_db_connection() as db:
                 db.store_feedback(conversation_id, feedback_type)
+                # Update the relevance based on feedback
                 relevance = self.get_relevance_from_feedback(feedback_type)
                 db.update_conversation_relevance(conversation_id, relevance)
             st.success("Thank you for your feedback!")
             logger.info(f"Feedback submitted: {feedback_type} for conversation ID: {conversation_id}")
-            time.sleep(0.5)
+            # Force a rerun of the app to update the metrics
+            time.sleep(0.5)  # Add a small delay to ensure the database update is complete
             st.experimental_rerun()
         except Exception as e:
             logger.error(f"Error submitting feedback: {str(e)}")
             st.error("An error occurred while submitting your feedback. Please try again.")
+
 
     def get_relevance_from_feedback(self, feedback_type: str) -> str:
         if feedback_type == "Helpful":
@@ -214,10 +214,12 @@ class MentalHealthChatbot:
         else:
             return "UNKNOWN"
 
+
     def display_metrics_page(self):
         st.title("Chatbot Metrics Dashboard")
 
         try:
+            # Fetch data
             total_conversations = self.database.get_total_conversations()
             avg_response_time = self.database.get_average_response_time()
             feedback_stats = self.database.get_feedback_stats()
@@ -226,6 +228,7 @@ class MentalHealthChatbot:
             avg_tokens = self.database.get_average_tokens()
             relevance_stats = self.database.get_relevance_stats()
 
+            # Display summary statistics
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Total Conversations", total_conversations)
@@ -234,22 +237,29 @@ class MentalHealthChatbot:
             with col3:
                 st.metric("Total Feedback", sum(feedback_stats.values()))
 
+            # Create separate visualizations
+            
+            # Feedback Distribution
             feedback_df = pd.DataFrame(list(feedback_stats.items()), columns=['Feedback', 'Count'])
             fig_feedback = px.pie(feedback_df, values='Count', names='Feedback', title="Feedback Distribution")
             st.plotly_chart(fig_feedback)
 
+            # Search Methods
             methods_df = pd.DataFrame(popular_methods, columns=['Method', 'Count'])
             fig_methods = px.bar(methods_df, x='Method', y='Count', title="Popular Search Methods")
             st.plotly_chart(fig_methods)
 
+            # Model Usage
             model_df = pd.DataFrame(list(model_stats.items()), columns=['Model', 'Count'])
             fig_model = px.bar(model_df, x='Model', y='Count', title="Model Usage")
             st.plotly_chart(fig_model)
 
+            # Response Relevance
             relevance_df = pd.DataFrame(list(relevance_stats.items()), columns=['Relevance', 'Count'])
             fig_relevance = px.pie(relevance_df, values='Count', names='Relevance', title="Response Relevance")
             st.plotly_chart(fig_relevance)
 
+            # Token Usage
             token_df = pd.DataFrame({
                 'Type': ['Prompt', 'Response', 'Completion'],
                 'Tokens': avg_tokens
@@ -257,6 +267,7 @@ class MentalHealthChatbot:
             fig_tokens = px.bar(token_df, x='Type', y='Tokens', title="Average Token Usage")
             st.plotly_chart(fig_tokens)
 
+            # Additional textual summaries
             st.subheader("Detailed Metrics")
             st.write(f"- Average response time: {avg_response_time:.2f} seconds")
             st.write("- Feedback received:")
@@ -319,3 +330,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+    # def update_conversation(self, user_input, response, response_time, prompt_tokens, response_tokens, completion_tokens, relevance):
+    #     try:
+    #         with SQLiteDatabase() as db:
+    #             if st.session_state.conversation_id:
+    #                 conversation_id = db.store_conversation(
+    #                     user_id=st.session_state.conversation_id,
+    #                     user_input=user_input,
+    #                     response=response,
+    #                     response_time=response_time
+    #                 )
+    #                 if conversation_id is None:
+    #                     raise Exception("Failed to store conversation")
+                    
+    #                 db.store_conversation_metrics(
+    #                     conversation_id,
+    #                     prompt_tokens,
+    #                     response_tokens,
+    #                     completion_tokens,
+    #                     relevance
+    #                 )
+    #             self.display_feedback_buttons(st.session_state.conversation_id)
+    #     except Exception as e:
+    #         logger.error(f"Error updating conversation: {str(e)}", exc_info=True)
+    #         st.error(f"An error occurred while saving the conversation: {str(e)}")

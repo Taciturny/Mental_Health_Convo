@@ -7,6 +7,10 @@ sys.path.append(str(project_root))
 import sqlite3
 import logging
 
+
+logger = logging.getLogger(__name__)
+
+
 class SQLiteDatabase:
     def __init__(self, db_path='chatbot.db'):
         self.db_path = db_path
