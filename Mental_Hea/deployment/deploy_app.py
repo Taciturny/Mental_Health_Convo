@@ -32,16 +32,14 @@ COLLECTION_NAME_CLOUD = "mental_health_collection"
 # Load environment variables
 load_dotenv()
 
-# Initialize cohere client
-cohere_api_key = os.getenv('COHERE_API_KEY')
-
+COHERE_API_KEY = os.getenv('COHERE_API_KEY')
 
 st.set_page_config(page_title="Mental Health Chatbot", layout="wide", initial_sidebar_state="expanded")
 
 class MentalHealthChatbot:
     def __init__(self):
         self.search_engine = SearchEngine(COLLECTION_NAME_CLOUD)
-        self.llm_model = CohereModel(cohere_api_key)
+        self.llm_model = CohereModel(COHERE_API_KEY)
         self.database = SQLiteDatabase()
         self.database.connect()
 
