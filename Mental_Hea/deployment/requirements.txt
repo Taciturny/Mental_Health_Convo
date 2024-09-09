@@ -3,3 +3,4 @@ fastembed == 0.3.6
 plotly
 cohere == 5.8.1
 db-sqlite3
+torch
