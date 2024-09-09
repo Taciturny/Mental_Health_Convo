@@ -3,6 +3,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
+import os
 import time
 import uuid
 import random
@@ -19,8 +20,8 @@ from search_engine import SearchEngine
 from src.core.config import settings
 
 # Load .env file if it exists (for local development)
-env_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
+# env_path = Path(__file__).resolve().parent.parent / '.env'
+# load_dotenv(dotenv_path=env_path)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,12 +29,19 @@ logger = logging.getLogger(__name__)
 QDRANT_URL = "https://e932e81a-113e-440f-96c0-c17b530bfe79.europe-west3-0.gcp.cloud.qdrant.io:6333/dashboard"
 COLLECTION_NAME_CLOUD = "mental_health_collection"
 
+# Load environment variables
+load_dotenv()
+
+# Initialize cohere client
+cohere_api_key = os.getenv('COHERE_API_KEY')
+
+
 st.set_page_config(page_title="Mental Health Chatbot", layout="wide", initial_sidebar_state="expanded")
 
 class MentalHealthChatbot:
     def __init__(self):
         self.search_engine = SearchEngine(COLLECTION_NAME_CLOUD)
-        self.llm_model = CohereModel(settings.COHERE_API_KEY)
+        self.llm_model = CohereModel(cohere_api_key)
         self.database = SQLiteDatabase()
         self.database.connect()
 
