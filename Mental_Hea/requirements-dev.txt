@@ -10,3 +10,5 @@ pydantic-settings == 2.4.0
 pytest == 8.3.2
 pandas
 numpy
+plotly
+tenacity
