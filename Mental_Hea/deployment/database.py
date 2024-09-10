@@ -1,18 +1,16 @@
+import logging
+import sqlite3
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
-import sqlite3
-import logging
-
-
-logger = logging.getLogger(__name__)
-
 
 class SQLiteDatabase:
-    def __init__(self, db_path='chatbot.db'):
+    def __init__(self, db_path="chatbot.db"):
         self.db_path = db_path
         self.conn = None
         self.cursor = None
@@ -41,15 +39,18 @@ class SQLiteDatabase:
 
     def create_tables(self):
         try:
-            self.cursor.execute('''
+            self.cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
                     password_hash TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            ''')
-            self.cursor.execute('''
+            """
+            )
+            self.cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS conversations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
@@ -61,8 +62,10 @@ class SQLiteDatabase:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users (id)
                 )
-            ''')
-            self.cursor.execute('''
+            """
+            )
+            self.cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS feedback (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     conversation_id INTEGER,
@@ -70,8 +73,10 @@ class SQLiteDatabase:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (conversation_id) REFERENCES conversations (id)
                 )
-            ''')
-            self.cursor.execute('''
+            """
+            )
+            self.cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS conversation_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     conversation_id INTEGER,
@@ -81,7 +86,8 @@ class SQLiteDatabase:
                     relevance TEXT,
                     FOREIGN KEY (conversation_id) REFERENCES conversations (id)
                 )
-            ''')
+            """
+            )
             self.conn.commit()
         except sqlite3.Error as e:
             logging.error(f"Error creating tables: {e}")
@@ -130,61 +136,70 @@ class SQLiteDatabase:
         query = "SELECT * FROM users WHERE username = ?"
         return self.fetch_one(query, (username,))
 
-    def store_conversation(self, user_id, user_input, response, response_time, search_method, model_used):
-        query = '''
-            INSERT INTO conversations 
+    def store_conversation(
+        self, user_id, user_input, response, response_time, search_method, model_used
+    ):
+        query = """
+            INSERT INTO conversations
             (user_id, user_input, response, response_time, search_method, model_used)
             VALUES (?, ?, ?, ?, ?, ?)
-        '''
-        return self.execute_query(query, (user_id, user_input, response, response_time, search_method, model_used))
+        """
+        return self.execute_query(
+            query,
+            (user_id, user_input, response, response_time, search_method, model_used),
+        )
 
-    def update_conversation(self, conversation_id, user_input, response, search_method, model_used):
-        query = '''
+    def update_conversation(
+        self, conversation_id, user_input, response, search_method, model_used
+    ):
+        query = """
             UPDATE conversations
             SET user_input = ?, response = ?, search_method = ?, model_used = ?
             WHERE id = ?
-        '''
-        self.execute_query(query, (user_input, response, search_method, model_used, conversation_id))
+        """
+        self.execute_query(
+            query, (user_input, response, search_method, model_used, conversation_id)
+        )
 
     def store_feedback(self, conversation_id, feedback_type):
         query = "INSERT INTO feedback (conversation_id, feedback_type) VALUES (?, ?)"
         return self.execute_query(query, (conversation_id, feedback_type))
 
     def get_conversation_history(self, user_id, limit=10):
-        query = '''
+        query = """
             SELECT * FROM conversations
             WHERE user_id = ?
             ORDER BY timestamp DESC
             LIMIT ?
-        '''
+        """
         return self.fetch_all(query, (user_id, limit))
 
     def get_feedback_stats(self):
-        query = '''
+        query = """
             SELECT feedback_type, COUNT(*) as count
             FROM feedback
             GROUP BY feedback_type
-        '''
+        """
         results = self.fetch_all(query)
         feedback_dict = dict(results)
-        
+
         # Ensure all feedback types are represented, even if count is 0
-        all_feedback_types = ['Helpful', 'Not Helpful', 'Needs Improvement']
+        all_feedback_types = ["Helpful", "Not Helpful", "Needs Improvement"]
         for feedback_type in all_feedback_types:
             if feedback_type not in feedback_dict:
                 feedback_dict[feedback_type] = 0
-        
+
         return feedback_dict
 
     def get_user_stats(self, user_id):
-        query = '''
-            SELECT 
+        query = """
+            SELECT
                 COUNT(*) as total_conversations,
                 AVG(response_time) as avg_response_time,
                 MAX(timestamp) as last_conversation
             FROM conversations
             WHERE user_id = ?
-        '''
+        """
         return self.fetch_one(query, (user_id,))
 
     def delete_user(self, user_id):
@@ -196,21 +211,21 @@ class SQLiteDatabase:
         self.execute_query(query, (conversation_id,))
 
     def get_popular_search_methods(self, limit=5):
-        query = '''
+        query = """
             SELECT search_method, COUNT(*) as count
             FROM conversations
             GROUP BY search_method
             ORDER BY count DESC
             LIMIT ?
-        '''
+        """
         return self.fetch_all(query, (limit,))
 
     def get_model_usage_stats(self):
-        query = '''
+        query = """
             SELECT model_used, COUNT(*) as count
             FROM conversations
             GROUP BY model_used
-        '''
+        """
         results = self.fetch_all(query)
         return dict(results)
 
@@ -224,22 +239,38 @@ class SQLiteDatabase:
         result = self.fetch_one(query)
         return result[0] if result else 0
 
-    def store_conversation_metrics(self, conversation_id, prompt_tokens, response_tokens, completion_tokens, relevance):
-        query = '''
+    def store_conversation_metrics(
+        self,
+        conversation_id,
+        prompt_tokens,
+        response_tokens,
+        completion_tokens,
+        relevance,
+    ):
+        query = """
             INSERT INTO conversation_metrics
             (conversation_id, prompt_tokens, response_tokens, completion_tokens, relevance)
             VALUES (?, ?, ?, ?, ?)
-        '''
-        self.execute_query(query, (conversation_id, prompt_tokens, response_tokens, completion_tokens, relevance))
+        """
+        self.execute_query(
+            query,
+            (
+                conversation_id,
+                prompt_tokens,
+                response_tokens,
+                completion_tokens,
+                relevance,
+            ),
+        )
 
     def get_average_tokens(self):
-        query = '''
-            SELECT 
+        query = """
+            SELECT
                 AVG(CASE WHEN prompt_tokens IS NOT NULL THEN prompt_tokens ELSE 0 END) as avg_prompt_tokens,
                 AVG(CASE WHEN response_tokens IS NOT NULL THEN response_tokens ELSE 0 END) as avg_response_tokens,
                 AVG(CASE WHEN completion_tokens IS NOT NULL THEN completion_tokens ELSE 0 END) as avg_completion_tokens
             FROM conversation_metrics
-        '''
+        """
         try:
             result = self.fetch_one(query)
             return result if result else (0, 0, 0)
@@ -248,19 +279,18 @@ class SQLiteDatabase:
             return (0, 0, 0)  # Return default values if the query fails
 
     def get_relevance_stats(self):
-        query = '''
+        query = """
             SELECT relevance, COUNT(*) as count
             FROM conversation_metrics
             GROUP BY relevance
-        '''
+        """
         results = self.fetch_all(query)
         return dict(results)
 
-
     def update_conversation_relevance(self, conversation_id: str, relevance: str):
-        query = '''
+        query = """
             UPDATE conversation_metrics
             SET relevance = ?
             WHERE conversation_id = ?
-        '''
+        """
         self.execute_query(query, (relevance, conversation_id))

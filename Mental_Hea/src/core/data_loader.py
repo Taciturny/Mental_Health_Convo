@@ -1,8 +1,10 @@
-import pandas as pd
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
 
 class DataLoader:
     def __init__(self, file_path: str):
@@ -18,7 +20,6 @@ class DataLoader:
                 logger.error(f"Error getting total rows: {str(e)}")
                 raise
         return self._total_rows
-    
 
     def load_data_in_batches(self, batch_size: int = 100) -> List[List[Dict[str, str]]]:
         """
@@ -36,13 +37,13 @@ class DataLoader:
             df = pd.read_parquet(self.file_path)
             total_rows = len(df)
             logger.info(f"Total number of rows: {total_rows}")
-            
+
             # Process data in batches
             for start in range(0, total_rows, batch_size):
                 end = min(start + batch_size, total_rows)
-                batch = df.iloc[start:end].to_dict('records')
+                batch = df.iloc[start:end].to_dict("records")
                 batches.append(batch)
-            
+
             logger.info(f"Loaded {total_rows} rows of data")
             return batches
         except Exception as e:

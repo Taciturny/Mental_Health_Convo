@@ -5,8 +5,8 @@ services:
     image: postgres:15
     container_name: monitoring_db
     environment:
-      POSTGRES_USER: tacy
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
       POSTGRES_DB: chatbot_monitoring
     volumes:
       - monitoring_data:/var/lib/postgresql/data
@@ -19,8 +19,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: tacy
+      GF_SECURITY_ADMIN_USER: username
+      GF_SECURITY_ADMIN_PASSWORD: password
     depends_on:
       - monitoring_db
     volumes:

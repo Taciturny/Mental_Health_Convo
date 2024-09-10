@@ -1,6 +1,6 @@
 __pycache__/
-Mental_Hea/src/.env
 Mental_Hea/mlruns
 mlruns
 mlruns/.trash/
 .pytest_cache/
+Mental_Hea/src/.env

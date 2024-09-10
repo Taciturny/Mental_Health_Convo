@@ -1,22 +1,24 @@
-
-import os
 import logging
-from typing import List, Tuple, Dict, Optional, Any
-from psycopg2.pool import SimpleConnectionPool
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+from psycopg2.pool import SimpleConnectionPool
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class Database:
     def __init__(self):
         self.pool = SimpleConnectionPool(
-            1, 20,
+            1,
+            20,
             host=os.getenv("POSTGRES_HOST", "localhost"),
             database=os.getenv("POSTGRES_DB", "chatbot_monitoring"),
             user=os.getenv("POSTGRES_USER", "tacy"),
             password=os.getenv("POSTGRES_PASSWORD", "1234"),
-            port=os.getenv("POSTGRES_PORT", "5432")
+            port=os.getenv("POSTGRES_PORT", "5432"),
         )
         self.create_tables()
 
@@ -45,7 +47,7 @@ class Database:
 
     def create_tables(self):
         """Create necessary tables if they don't exist."""
-        self.execute_query("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
+        self.execute_query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
         queries = [
             """
@@ -57,7 +59,7 @@ class Database:
                 search_type TEXT NOT NULL,
                 model_type TEXT NOT NULL,
                 confidence_score FLOAT,
-                response_time FLOAT, 
+                response_time FLOAT,
                 query_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 response_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -81,7 +83,7 @@ class Database:
                 type TEXT PRIMARY KEY,
                 count INTEGER DEFAULT 0
             )
-            """
+            """,
         ]
 
         for query in queries:
@@ -89,33 +91,53 @@ class Database:
 
         logger.info("Database tables created or verified")
 
-    def store_conversation(self, user_id: str, query: str, response: str, search_type: str, model_type: str, confidence_score: float, response_time: float) -> str:
+    def store_conversation(
+        self,
+        user_id: str,
+        query: str,
+        response: str,
+        search_type: str,
+        model_type: str,
+        confidence_score: float,
+        response_time: float,
+    ) -> str:
         """Store a conversation and update related statistics."""
         insert_query = """
-        INSERT INTO conversations (user_id, query, response, search_type, model_type, confidence_score, response_time) 
+        INSERT INTO conversations (user_id, query, response, search_type, model_type, confidence_score, response_time)
         VALUES (%s::uuid, %s, %s, %s, %s, %s, %s)
         RETURNING id
         """
-        result = self.execute_query(insert_query, (user_id, query, response, search_type, model_type, confidence_score, response_time))
+        result = self.execute_query(
+            insert_query,
+            (
+                user_id,
+                query,
+                response,
+                search_type,
+                model_type,
+                confidence_score,
+                response_time,
+            ),
+        )
         conversation_id = result[0][0]
 
         self.execute_query(
             "INSERT INTO search_types (type, count) VALUES (%s, 1) ON CONFLICT (type) DO UPDATE SET count = search_types.count + 1",
-            (search_type,)
+            (search_type,),
         )
         self.execute_query(
             "INSERT INTO model_types (type, count) VALUES (%s, 1) ON CONFLICT (type) DO UPDATE SET count = model_types.count + 1",
-            (model_type,)
+            (model_type,),
         )
         logger.info(f"Stored conversation with ID: {conversation_id}")
         return str(conversation_id)
-    
+
     def store_feedback(self, conversation_id: str, feedback: str):
         """Store feedback for a conversation."""
         try:
             self.execute_query(
                 "INSERT INTO feedback (conversation_id, feedback) VALUES (%s::uuid, %s)",
-                (conversation_id, feedback)
+                (conversation_id, feedback),
             )
             logger.info(f"Stored feedback for conversation ID: {conversation_id}")
         except Exception as e:
@@ -123,65 +145,75 @@ class Database:
             # Check if the conversation exists
             conversation_exists = self.execute_query(
                 "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = %s::uuid)",
-                (conversation_id,)
+                (conversation_id,),
             )[0][0]
             if not conversation_exists:
                 logger.error(f"Conversation with ID {conversation_id} does not exist")
-                raise ValueError(f"Conversation with ID {conversation_id} does not exist")
+                raise ValueError(
+                    f"Conversation with ID {conversation_id} does not exist"
+                )
             else:
                 raise  # Re-raise the original exception if the conversation exists
-
 
     def get_conversation_stats(self) -> Dict[str, int]:
         """Get conversation statistics."""
         result = self.execute_query("SELECT COUNT(*) FROM conversations")
         total_conversations = result[0][0]
-        logger.info(f"Retrieved conversation stats: {total_conversations} total conversations")
+        logger.info(
+            f"Retrieved conversation stats: {total_conversations} total conversations"
+        )
         return {"total_conversations": total_conversations}
 
     def get_feedback_stats(self) -> Dict[str, int]:
         """Get feedback statistics."""
-        result = self.execute_query("""
-            SELECT feedback, COUNT(*) 
-            FROM feedback 
+        result = self.execute_query(
+            """
+            SELECT feedback, COUNT(*)
+            FROM feedback
             GROUP BY feedback
-        """)
+        """
+        )
         feedback_stats = dict(result)
         logger.info(f"Retrieved feedback stats: {feedback_stats}")
         return feedback_stats
 
     def get_search_type_stats(self) -> Dict[str, int]:
         """Get search type statistics."""
-        result = self.execute_query("SELECT type, count FROM search_types ORDER BY count DESC")
+        result = self.execute_query(
+            "SELECT type, count FROM search_types ORDER BY count DESC"
+        )
         search_type_stats = dict(result)
         logger.info(f"Retrieved search type stats: {search_type_stats}")
         return search_type_stats
 
     def get_model_type_stats(self) -> Dict[str, int]:
         """Get model type statistics."""
-        result = self.execute_query("SELECT type, count FROM model_types ORDER BY count DESC")
+        result = self.execute_query(
+            "SELECT type, count FROM model_types ORDER BY count DESC"
+        )
         model_type_stats = dict(result)
         logger.info(f"Retrieved model type stats: {model_type_stats}")
         return model_type_stats
-    
+
     def get_user_engagement_stats(self, days: int = 7) -> Dict[str, int]:
         """Get user engagement statistics for the last n days."""
-        result = self.execute_query(f"""
-            SELECT DATE(query_timestamp) as date, COUNT(*) 
-            FROM conversations 
+        result = self.execute_query(
+            f"""
+            SELECT DATE(query_timestamp) as date, COUNT(*)
+            FROM conversations
             WHERE query_timestamp > NOW() - INTERVAL '{days} days'
-            GROUP BY DATE(query_timestamp) 
-            ORDER BY date DESC 
-        """)
+            GROUP BY DATE(query_timestamp)
+            ORDER BY date DESC
+        """
+        )
         engagement_stats = dict(result)
         logger.info(f"Retrieved user engagement stats for the last {days} days")
         return engagement_stats
-    
 
     def get_model_performance_stats(self) -> List[Dict[str, Any]]:
         """Get model performance statistics."""
         query = """
-        SELECT 
+        SELECT
             c.model_type,
             AVG(CASE WHEN f.feedback IN ('Somewhat Helpful', 'Very Helpful') THEN 1 ELSE 0 END) as positive_feedback_rate,
             AVG(LENGTH(c.response)) as avg_response_length,
@@ -195,10 +227,16 @@ class Database:
         performance_stats = [
             {
                 "model_type": stat[0],
-                "positive_feedback_rate": round(stat[1] * 100, 2) if stat[1] is not None else None,
-                "avg_response_length": round(stat[2], 2) if stat[2] is not None else None,
+                "positive_feedback_rate": (
+                    round(stat[1] * 100, 2) if stat[1] is not None else None
+                ),
+                "avg_response_length": (
+                    round(stat[2], 2) if stat[2] is not None else None
+                ),
                 "usage_count": stat[3],
-                "avg_confidence_score": round(stat[4], 2) if stat[4] is not None else None
+                "avg_confidence_score": (
+                    round(stat[4], 2) if stat[4] is not None else None
+                ),
             }
             for stat in result
         ]
@@ -212,14 +250,15 @@ class Database:
         WHERE response_time IS NOT NULL AND response_time > 0
         """
         result = self.execute_query(query)
-        avg_response_time = result[0][0] if result and result[0][0] is not None else None
+        avg_response_time = (
+            result[0][0] if result and result[0][0] is not None else None
+        )
         logger.info(f"Average response time: {avg_response_time}")
         return avg_response_time
-    
-    
+
     def get_user_engagement_rate(self) -> Optional[float]:
         query = """
-        SELECT 
+        SELECT
             COUNT(DISTINCT CASE WHEN conversation_count > 1 THEN user_id END) * 100.0 / NULLIF(COUNT(DISTINCT user_id), 0) as engagement_rate
         FROM (
             SELECT user_id, COUNT(*) as conversation_count
@@ -235,24 +274,26 @@ class Database:
     def get_query_complexity_stats(self) -> Tuple[float, int, int]:
         """Get query complexity statistics."""
         query = """
-        SELECT 
+        SELECT
             AVG(LENGTH(query)) as avg_query_length,
             MIN(LENGTH(query)) as min_query_length,
             MAX(LENGTH(query)) as max_query_length
         FROM conversations
         """
         return self.execute_query(query)[0]
-    
+
     def get_error_rate(self) -> Optional[float]:
         query = """
-        SELECT 
+        SELECT
             COUNT(CASE WHEN feedback IN ('Very Unhelpful', 'Somewhat Unhelpful') THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) as error_rate
         FROM conversations
         LEFT JOIN feedback ON conversations.id = feedback.conversation_id
         WHERE feedback IS NOT NULL
         """
         result = self.execute_query(query)
-        error_rate = round(result[0][0], 2) if result and result[0][0] is not None else None
+        error_rate = (
+            round(result[0][0], 2) if result and result[0][0] is not None else None
+        )
         logger.info(f"Error rate: {error_rate}")
         return error_rate
 
@@ -266,10 +307,10 @@ class Database:
         LIMIT %s
         """
         return self.execute_query(query, (n,))
-    
+
     def get_model_confidence_stats(self) -> Tuple[float, float, float]:
         query = """
-        SELECT 
+        SELECT
             AVG(confidence_score) as avg_confidence,
             MIN(NULLIF(confidence_score, 0)) as min_confidence,
             MAX(confidence_score) as max_confidence
@@ -278,7 +319,6 @@ class Database:
         """
         result = self.execute_query(query)
         return tuple(round(val, 2) if val is not None else None for val in result[0])
-
 
     def get_active_users(self, days: int = 7) -> int:
         """Get number of active users in the last n days."""
@@ -290,7 +330,6 @@ class Database:
         result = self.execute_query(query, (f"{days} days",))
         return result[0][0] if result else 0
 
-    
     def get_avg_conversation_length(self) -> Optional[float]:
         query = """
         SELECT AVG(exchange_count) as avg_conversation_length
@@ -302,9 +341,10 @@ class Database:
         """
         result = self.execute_query(query)
         return round(result[0][0], 2) if result and result[0][0] is not None else None
-   
 
-    def get_daily_conversation_count(self, last_n_days: int = 30) -> List[Tuple[datetime.date, int]]:
+    def get_daily_conversation_count(
+        self, last_n_days: int = 30
+    ) -> List[Tuple[datetime.date, int]]:
         """Get the daily conversation count for the last n days."""
         query = """
         SELECT DATE(query_timestamp) as date, COUNT(*) as count
@@ -314,7 +354,9 @@ class Database:
         ORDER BY date ASC
         """
         result = self.execute_query(query, (last_n_days,))
-        logger.info(f"Retrieved daily conversation count for the last {last_n_days} days")
+        logger.info(
+            f"Retrieved daily conversation count for the last {last_n_days} days"
+        )
         return result
 
     def get_feedback_distribution(self) -> Dict[str, int]:
