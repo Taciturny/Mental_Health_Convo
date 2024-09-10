@@ -49,23 +49,15 @@ class QdrantRetrievalEvaluator:
 
                 for query_id, query_text in self.ground_truth.items():
                     if search_type == "dense":
-                        search_results = self.search_engine.search_dense(
-                            query_text
-                        )
+                        search_results = self.search_engine.search_dense(query_text)
                     elif search_type == "late":
-                        search_results = self.search_engine.search_late(
-                            query_text
-                        )
+                        search_results = self.search_engine.search_late(query_text)
                     else:  # hybrid
-                        search_results = self.search_engine.search_hybrid(
-                            query_text
-                        )
+                        search_results = self.search_engine.search_hybrid(query_text)
 
                     relevant_docs = set([query_id])
 
-                    retrieved_docs = [
-                        point.id for point in search_results.points[:k]
-                    ]
+                    retrieved_docs = [point.id for point in search_results.points[:k]]
                     retrieved_scores = [
                         point.score for point in search_results.points[:k]
                     ]
@@ -112,9 +104,7 @@ class QdrantRetrievalEvaluator:
         }
 
     @staticmethod
-    def precision_at_k(
-        retrieved_docs: List[str], relevant_docs: set, k: int
-    ) -> float:
+    def precision_at_k(retrieved_docs: List[str], relevant_docs: set, k: int) -> float:
         return len(set(retrieved_docs[:k]) & relevant_docs) / k
 
     @staticmethod
@@ -135,15 +125,11 @@ class QdrantRetrievalEvaluator:
         scores: List[float],
         k: int,
     ) -> float:
-        relevance = [
-            1 if doc in relevant_docs else 0 for doc in retrieved_docs[:k]
-        ]
+        relevance = [1 if doc in relevant_docs else 0 for doc in retrieved_docs[:k]]
         return ndcg_score([relevance], [scores], k=k)
 
     @staticmethod
-    def average_precision(
-        retrieved_docs: List[str], relevant_docs: set
-    ) -> float:
+    def average_precision(retrieved_docs: List[str], relevant_docs: set) -> float:
         score = 0.0
         num_hits = 0.0
         for i, doc in enumerate(retrieved_docs):
@@ -165,15 +151,11 @@ class QdrantRetrievalEvaluator:
         r = len(relevant_docs)
         return len(set(retrieved_docs[:r]) & relevant_docs) / r if r > 0 else 0
 
-    def save_results_to_csv(
-        self, results: Dict[str, Dict[str, List[float]]], k: int
-    ):
+    def save_results_to_csv(self, results: Dict[str, Dict[str, List[float]]], k: int):
         filename = f"retrieval_evaluation_results_k{k}.csv"
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            headers = ["Search Type"] + list(
-                next(iter(results.values())).keys()
-            )
+            headers = ["Search Type"] + list(next(iter(results.values())).keys())
             writer.writerow(headers)
 
             for search_type, metrics in results.items():

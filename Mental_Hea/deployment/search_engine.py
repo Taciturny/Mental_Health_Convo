@@ -22,15 +22,11 @@ class SearchEngine:
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
         self.embeddings_model = EmbeddingsModel.get_instance()
-        self.client = QdrantClient(
-            url=QDRANT_URL, api_key=settings.QDRANT_API_KEY
-        )
+        self.client = QdrantClient(url=QDRANT_URL, api_key=settings.QDRANT_API_KEY)
 
     def search_dense(self, query_text: str):
         try:
-            dense_embeddings, _ = self.embeddings_model.embeddings(
-                [query_text]
-            )
+            dense_embeddings, _ = self.embeddings_model.embeddings([query_text])
             results = self.client.query_points(
                 collection_name=self.collection_name,
                 query=dense_embeddings[0],
@@ -61,8 +57,8 @@ class SearchEngine:
     def search_hybrid(self, query_text: str):
         try:
             # Get embeddings from your model
-            dense_embeddings, late_embeddings = (
-                self.embeddings_model.embeddings([query_text])
+            dense_embeddings, late_embeddings = self.embeddings_model.embeddings(
+                [query_text]
             )
 
             # Prepare prefetch query for initial retrieval
@@ -87,7 +83,5 @@ class SearchEngine:
             return results
 
         except Exception as e:
-            logger.error(
-                f"Error performing hybrid search with reranking: {str(e)}"
-            )
+            logger.error(f"Error performing hybrid search with reranking: {str(e)}")
             raise

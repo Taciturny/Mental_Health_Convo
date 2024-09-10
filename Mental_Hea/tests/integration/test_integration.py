@@ -23,9 +23,9 @@ def mock_database():
 
 @pytest.fixture
 def app(mock_search_engine, mock_database):
-    with patch(
-        "monitoring.app.SearchEngine", return_value=mock_search_engine
-    ), patch("monitoring.app.Database", return_value=mock_database):
+    with patch("monitoring.app.SearchEngine", return_value=mock_search_engine), patch(
+        "monitoring.app.Database", return_value=mock_database
+    ):
         return MentalHealthMonitoringApp()
 
 
@@ -47,13 +47,9 @@ def mock_streamlit():
     mock_state.last_response = None
     mock_state.show_feedback = False
 
-    with patch(
-        "streamlit.text_input", return_value="How to manage stress?"
-    ), patch(
+    with patch("streamlit.text_input", return_value="How to manage stress?"), patch(
         "streamlit.selectbox", side_effect=["RAG", "Hybrid", "Very Helpful"]
-    ), patch(
-        "streamlit.button", return_value=True
-    ), patch(
+    ), patch("streamlit.button", return_value=True), patch(
         "streamlit.write"
     ) as mock_write, patch(
         "streamlit.success"
@@ -72,16 +68,11 @@ def test_post_process_response(app):
         == "This is a test."
     )
     assert (
-        app.post_process_response("A: lowercase start", "Query")
-        == "Lowercase start."
+        app.post_process_response("A: lowercase start", "Query") == "Lowercase start."
     )
+    assert app.post_process_response("Answer: No period", "Query") == "No period."
     assert (
-        app.post_process_response("Answer: No period", "Query") == "No period."
-    )
-    assert (
-        app.post_process_response(
-            "AI: Multiple sentences. Second one.", "Query"
-        )
+        app.post_process_response("AI: Multiple sentences. Second one.", "Query")
         == "Multiple sentences. Second one."
     )
 

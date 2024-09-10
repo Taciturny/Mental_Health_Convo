@@ -30,9 +30,7 @@ class QdrantManager:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
     )
-    def create_collection(
-        self, collection_name: str, retries: int = 3, delay: int = 5
-    ):
+    def create_collection(self, collection_name: str, retries: int = 3, delay: int = 5):
         """
         Create a Qdrant collection with the specified name and vector configurations.
 
@@ -60,9 +58,7 @@ class QdrantManager:
                     collection_name,
                     vectors_config=vectors_config,
                 )
-                logger.info(
-                    f"Collection '{collection_name}' created successfully."
-                )
+                logger.info(f"Collection '{collection_name}' created successfully.")
                 return
             except TimeoutError as e:
                 logger.warning(
@@ -70,9 +66,7 @@ class QdrantManager:
                 )
                 time.sleep(delay)
             except Exception as e:
-                logger.error(
-                    f"Error creating collection '{collection_name}': {str(e)}"
-                )
+                logger.error(f"Error creating collection '{collection_name}': {str(e)}")
                 raise
 
         logger.error(
@@ -84,10 +78,7 @@ class QdrantManager:
         """Check if a collection exists."""
         try:
             collections = self.client.get_collections().collections
-            return any(
-                collection.name == collection_name
-                for collection in collections
-            )
+            return any(collection.name == collection_name for collection in collections)
         except Exception as e:
             logger.error(f"Error checking if collection exists: {str(e)}")
             return False
@@ -97,9 +88,7 @@ class QdrantManager:
         try:
             if not self.collection_exists(collection_name):
                 self.create_collection(collection_name)
-                logger.info(
-                    f"Collection '{collection_name}' created successfully."
-                )
+                logger.info(f"Collection '{collection_name}' created successfully.")
             else:
                 logger.info(f"Collection '{collection_name}' already exists.")
         except Exception as e:

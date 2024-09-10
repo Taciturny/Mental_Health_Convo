@@ -3,12 +3,8 @@ import sys
 from pathlib import Path
 
 from src.core.config import settings
-from src.core.utils import (
-    initialize_qdrant,
-    is_relevant_query,
-    load_and_embed_data,
-    upload_data_to_qdrant,
-)
+from src.core.utils import (initialize_qdrant, is_relevant_query,
+                            load_and_embed_data, upload_data_to_qdrant)
 
 from .cohere_model import CohereModel
 from .search_engine import SearchEngine
@@ -46,9 +42,7 @@ def run():
         logger.info("Qdrant initialized successfully with cloud settings.")
 
         # Check if collection exists and create it if it doesn't
-        if not qdrant_manager.collection_exists(
-            settings.COLLECTION_NAME_CLOUD
-        ):
+        if not qdrant_manager.collection_exists(settings.COLLECTION_NAME_CLOUD):
             logger.info(
                 f"Collection '{settings.COLLECTION_NAME_CLOUD}' does not exist. Creating it now."
             )
@@ -90,9 +84,7 @@ def run():
         while True:
             query = input("Enter your search query (or 'quit' to exit): ")
             if query.lower() == "quit":
-                print(
-                    "Thank you for using the Mental Health QA system. Goodbye!"
-                )
+                print("Thank you for using the Mental Health QA system. Goodbye!")
                 break
 
             if not is_relevant_query(query, relevant_keywords):
@@ -116,9 +108,7 @@ def run():
                 print("AI Response:", cohere_response)
 
                 # Ask for feedback
-                feedback = input(
-                    "Was this response helpful? (yes/no): "
-                ).lower()
+                feedback = input("Was this response helpful? (yes/no): ").lower()
                 if feedback == "no":
                     print(
                         "I apologize that the response wasn't helpful. Please try rephrasing your question or ask something more specific about mental health."

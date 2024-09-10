@@ -3,7 +3,6 @@ from typing import List, Tuple
 
 import numpy as np
 from fastembed import TextEmbedding
-
 # from fastembed.sparse.bm25 import Bm25
 from fastembed.late_interaction import LateInteractionTextEmbedding
 
@@ -33,8 +32,8 @@ class EmbeddingsModel:
                 "sentence-transformers/all-MiniLM-L6-v2"
             )
             # self.sparse_embedding_model = Bm25("Qdrant/bm25")
-            self.late_interaction_embedding_model = (
-                LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+            self.late_interaction_embedding_model = LateInteractionTextEmbedding(
+                "colbert-ir/colbertv2.0"
             )
             logger.info("All embedding models initialized successfully.")
         except Exception as e:
@@ -65,9 +64,7 @@ class EmbeddingsModel:
 
             # Generate embeddings for the current batch
             dense_batch = self.dense_embedding_model.embed(batch_inputs)
-            late_batch = self.late_interaction_embedding_model.embed(
-                batch_inputs
-            )
+            late_batch = self.late_interaction_embedding_model.embed(batch_inputs)
 
             dense_embeddings.extend(dense_batch)
             late_embeddings.extend(late_batch)

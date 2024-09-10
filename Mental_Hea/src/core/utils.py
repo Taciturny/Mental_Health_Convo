@@ -62,9 +62,7 @@ def load_and_embed_data(
         all_dense_embeddings.extend(dense_embeddings)
         all_late_embeddings.extend(late_embeddings)
 
-    logger.info(
-        f"Finished loading and embedding. Total data points: {len(all_data)}"
-    )
+    logger.info(f"Finished loading and embedding. Total data points: {len(all_data)}")
     return all_data, all_dense_embeddings, all_late_embeddings
 
 
@@ -118,9 +116,7 @@ def merge_search_results(
     dense_results, late_results, hybrid_results, weights=(0.3, 0.3, 0.4)
 ):
     all_results = {}
-    for results, weight in zip(
-        [dense_results, late_results, hybrid_results], weights
-    ):
+    for results, weight in zip([dense_results, late_results, hybrid_results], weights):
         for result in results:
             if result.id not in all_results:
                 all_results[result.id] = {

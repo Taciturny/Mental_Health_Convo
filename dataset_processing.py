@@ -58,9 +58,7 @@ class DataPreprocessor:
         """
         for col in ["input", "output"]:
             df[col] = df[col].apply(
-                lambda text: self.remove_irrelevant_content(
-                    text.lower().strip()
-                )
+                lambda text: self.remove_irrelevant_content(text.lower().strip())
             )
         return df
 
@@ -121,9 +119,7 @@ class DataPreprocessor:
             output_path (str): The path to the output Parquet file.
         """
         # Rename columns
-        processed_data = df.rename(
-            columns={"question": "question", "answer": "answer"}
-        )
+        processed_data = df.rename(columns={"question": "question", "answer": "answer"})
         columns_order = ["id", "question", "answer"]
         processed_data = processed_data[columns_order]
         processed_data.to_parquet(output_path)
@@ -157,9 +153,7 @@ def main(parquet_path, csv_path, output_path):
     )
 
     # Concatenate the two dataframes
-    combined_df = pd.concat(
-        [df_parquet_processed, df_csv_processed], ignore_index=True
-    )
+    combined_df = pd.concat([df_parquet_processed, df_csv_processed], ignore_index=True)
 
     print(f"Shape of combined data: {combined_df.shape}")
 

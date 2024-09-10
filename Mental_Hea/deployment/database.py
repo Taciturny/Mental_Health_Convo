@@ -301,9 +301,7 @@ class SQLiteDatabase:
         results = self.fetch_all(query)
         return dict(results)
 
-    def update_conversation_relevance(
-        self, conversation_id: str, relevance: str
-    ):
+    def update_conversation_relevance(self, conversation_id: str, relevance: str):
         query = """
             UPDATE conversation_metrics
             SET relevance = ?

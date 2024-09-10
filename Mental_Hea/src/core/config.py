@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     class Config:
         # env_file = ".env"
         env_file = str(Path(__file__).resolve().parent.parent / ".env")
-        # env_file = str(Path(__file__).resolve().parent.parent / '.env') uncomment when running locally
-        # env_file_encoding = "utf-8"
+
 
 settings = Settings()

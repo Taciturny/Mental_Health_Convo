@@ -15,9 +15,7 @@ from .database_monitor import Database
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
-st.set_page_config(
-    page_title="Mental Health Chatbot", page_icon="🧠", layout="wide"
-)
+st.set_page_config(page_title="Mental Health Chatbot", page_icon="🧠", layout="wide")
 
 
 class MentalHealthMonitoringApp:
@@ -64,9 +62,7 @@ class MentalHealthMonitoringApp:
         if st.button("Generate Response"):
             if query:
                 start_time = time.time()
-                response = self.generate_response(
-                    query, search_type, model_type
-                )
+                response = self.generate_response(query, search_type, model_type)
                 end_time = time.time()
                 response_time = end_time - start_time
 
@@ -82,10 +78,7 @@ class MentalHealthMonitoringApp:
             st.subheader("Generated Response:")
             st.write(st.session_state.last_response)
 
-        if (
-            "show_feedback" in st.session_state
-            and st.session_state.show_feedback
-        ):
+        if "show_feedback" in st.session_state and st.session_state.show_feedback:
             self.collect_feedback()
 
     def generate_response(
@@ -190,9 +183,7 @@ class MentalHealthMonitoringApp:
                         "Feedback has already been submitted for this conversation."
                     )
             else:
-                st.error(
-                    "Unable to submit feedback. No conversation ID found."
-                )
+                st.error("Unable to submit feedback. No conversation ID found.")
 
     def display_feedback_message(self, feedback: str):
         if feedback in ["Very Helpful", "Somewhat Helpful"]:
@@ -219,9 +210,7 @@ class MentalHealthMonitoringApp:
             "error_rate": _self.db.get_error_rate(),
             "model_performance": _self.db.get_model_performance_stats(),
             "search_type_stats": _self.db.get_search_type_stats(),
-            "daily_conversations": _self.db.get_daily_conversation_count(
-                last_n_days=5
-            ),
+            "daily_conversations": _self.db.get_daily_conversation_count(last_n_days=5),
             "feedback_distribution": _self.db.get_feedback_distribution(),
         }
 
@@ -230,9 +219,7 @@ class MentalHealthMonitoringApp:
 
         metrics = self.get_fresh_metrics()
 
-        st.sidebar.metric(
-            "Total Conversations", metrics["total_conversations"]
-        )
+        st.sidebar.metric("Total Conversations", metrics["total_conversations"])
         if metrics["avg_response_time"]:
             st.sidebar.metric(
                 "Avg Response Time", f"{metrics['avg_response_time']:.2f}s"
@@ -248,16 +235,10 @@ class MentalHealthMonitoringApp:
         st.sidebar.subheader("Model Performance")
         for model in metrics["model_performance"]:
             with st.sidebar.expander(f"{model['model_type']} Stats"):
-                st.write(
-                    f"Positive Feedback Rate: {model['positive_feedback_rate']}%"
-                )
-                st.write(
-                    f"Avg Response Length: {model['avg_response_length']}"
-                )
+                st.write(f"Positive Feedback Rate: {model['positive_feedback_rate']}%")
+                st.write(f"Avg Response Length: {model['avg_response_length']}")
                 st.write(f"Usage Count: {model['usage_count']}")
-                st.write(
-                    f"Avg Confidence Score: {model['avg_confidence_score']}"
-                )
+                st.write(f"Avg Confidence Score: {model['avg_confidence_score']}")
 
         # Search Type Distribution
         if metrics["search_type_stats"]:
@@ -295,9 +276,7 @@ class MentalHealthMonitoringApp:
         elif selected_visualization == "Feedback Distribution":
             self.plot_feedback_distribution(metrics["feedback_distribution"])
         elif selected_visualization == "Model Performance Comparison":
-            self.plot_model_performance_comparison(
-                metrics["model_performance"]
-            )
+            self.plot_model_performance_comparison(metrics["model_performance"])
 
     def plot_search_type_distribution(self, search_type_stats):
         fig = go.Figure(
@@ -313,9 +292,7 @@ class MentalHealthMonitoringApp:
 
     def plot_daily_conversation_trend(self, daily_conversations):
         df = pd.DataFrame(daily_conversations, columns=["date", "count"])
-        fig = px.line(
-            df, x="date", y="count", title="Daily Conversation Trend"
-        )
+        fig = px.line(df, x="date", y="count", title="Daily Conversation Trend")
         st.plotly_chart(fig, use_container_width=True)
 
     def plot_feedback_distribution(self, feedback_distribution):
@@ -357,9 +334,7 @@ class MentalHealthMonitoringApp:
                 ),
             ]
         )
-        fig.update_layout(
-            title_text="Model Performance Comparison", barmode="group"
-        )
+        fig.update_layout(title_text="Model Performance Comparison", barmode="group")
         st.plotly_chart(fig, use_container_width=True)
 
 

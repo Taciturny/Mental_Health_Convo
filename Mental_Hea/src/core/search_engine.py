@@ -23,9 +23,7 @@ sys.path.append(str(project_root))
 class SearchEngine:
     """Manages hybrid search operations using Qdrant vector database and text embeddings."""
 
-    def __init__(
-        self, collection_name: str, host: str = "localhost", port: int = 6333
-    ):
+    def __init__(self, collection_name: str, host: str = "localhost", port: int = 6333):
         self.collection_name = collection_name
         self.qdrant_client = QdrantManager(host=host, port=port)
         self.embeddings_model = EmbeddingsModel.get_instance()
@@ -39,18 +37,14 @@ class SearchEngine:
                 self.qdrant_client.create_collection(self.collection_name)
                 logger.info(f"Created new collection: {self.collection_name}")
             else:
-                logger.info(
-                    f"Collection {self.collection_name} already exists"
-                )
+                logger.info(f"Collection {self.collection_name} already exists")
         except Exception as e:
             logger.error(f"Error initializing collection: {str(e)}")
             raise
 
     def search_dense(self, query_text: str):
         try:
-            dense_embeddings, _ = self.embeddings_model.embeddings(
-                [query_text]
-            )
+            dense_embeddings, _ = self.embeddings_model.embeddings([query_text])
             results = self.client.query_points(
                 collection_name=self.collection_name,
                 query=dense_embeddings[0],
@@ -81,8 +75,8 @@ class SearchEngine:
     def search_hybrid(self, query_text: str):
         try:
             # Get embeddings from your model
-            dense_embeddings, late_embeddings = (
-                self.embeddings_model.embeddings([query_text])
+            dense_embeddings, late_embeddings = self.embeddings_model.embeddings(
+                [query_text]
             )
 
             # Prepare prefetch query for initial retrieval
@@ -107,9 +101,7 @@ class SearchEngine:
             return results
 
         except Exception as e:
-            logger.error(
-                f"Error performing hybrid search with reranking: {str(e)}"
-            )
+            logger.error(f"Error performing hybrid search with reranking: {str(e)}")
             raise
 
     def compute_relevance(self, query: str, response: str) -> float:
@@ -167,9 +159,7 @@ class SearchEngine:
         # Split into sentences and rejoin with proper spacing
         sentences = response.split(".")
         formatted_response = ". ".join(
-            sentence.strip().capitalize()
-            for sentence in sentences
-            if sentence.strip()
+            sentence.strip().capitalize() for sentence in sentences if sentence.strip()
         )
 
         # Split into paragraphs and rejoin with proper spacing
@@ -180,9 +170,7 @@ class SearchEngine:
 
         return formatted_response
 
-    def fallback_to_search(
-        self, query: str, search_type: str
-    ) -> Dict[str, Any]:
+    def fallback_to_search(self, query: str, search_type: str) -> Dict[str, Any]:
         if search_type == "dense":
             results = self.search_dense(query)
         elif search_type == "late":
@@ -249,9 +237,7 @@ class SearchEngine:
             )
 
             # Step 5: Post-process and format the response
-            best_response = self.post_process_response(
-                generated_responses[0], query
-            )
+            best_response = self.post_process_response(generated_responses[0], query)
 
             # Step 6: Prepare the final result
             result = {
@@ -274,7 +260,9 @@ class SearchEngine:
     def generate_context(self, search_results):
         context = ""
         for point in search_results.points:
-            context += f"Q: {point.payload['question']}\nA: {point.payload['answer']}\n\n"
+            context += (
+                f"Q: {point.payload['question']}\nA: {point.payload['answer']}\n\n"
+            )
         return context.strip()
 
     def post_process_response(self, response: str, query: str) -> str:

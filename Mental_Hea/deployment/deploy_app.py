@@ -91,9 +91,7 @@ class MentalHealthChatbot:
                 st.write(message["content"])
 
     def handle_user_input(self):
-        user_input = st.chat_input(
-            "Enter your message:", key="user_chat_input"
-        )
+        user_input = st.chat_input("Enter your message:", key="user_chat_input")
         if user_input:
             preprocessed_input = self.preprocess_input(user_input)
             simple_response, end_conversation = self.handle_simple_inputs(
@@ -162,9 +160,7 @@ class MentalHealthChatbot:
                 )
                 relevance = "PARTLY_RELEVANT"
             else:
-                prompt = (
-                    f"Context: {context}\n\nUser: {user_input}\nAssistant:"
-                )
+                prompt = f"Context: {context}\n\nUser: {user_input}\nAssistant:"
                 response = self.llm_model.generate_response(prompt)
                 relevance = "RELEVANT"
 
@@ -197,9 +193,7 @@ class MentalHealthChatbot:
     def preprocess_input(self, user_input: str) -> str:
         return user_input.lower().strip()
 
-    def handle_simple_inputs(
-        self, preprocessed_input: str
-    ) -> Tuple[str, bool]:
+    def handle_simple_inputs(self, preprocessed_input: str) -> Tuple[str, bool]:
         simple_responses = {
             "thank you": (
                 "You're welcome! I'm glad I could help. Is there anything else you'd like to discuss?",
@@ -259,9 +253,7 @@ class MentalHealthChatbot:
             if st.button("👍 Helpful", key=f"helpful_{conversation_id}"):
                 self.submit_feedback(conversation_id, "Helpful")
         with col2:
-            if st.button(
-                "👎 Not Helpful", key=f"not_helpful_{conversation_id}"
-            ):
+            if st.button("👎 Not Helpful", key=f"not_helpful_{conversation_id}"):
                 self.submit_feedback(conversation_id, "Not Helpful")
         with col3:
             if st.button(
@@ -339,9 +331,7 @@ class MentalHealthChatbot:
             st.plotly_chart(fig_feedback)
 
             # Search Methods
-            methods_df = pd.DataFrame(
-                popular_methods, columns=["Method", "Count"]
-            )
+            methods_df = pd.DataFrame(popular_methods, columns=["Method", "Count"])
             fig_methods = px.bar(
                 methods_df,
                 x="Method",
@@ -354,9 +344,7 @@ class MentalHealthChatbot:
             model_df = pd.DataFrame(
                 list(model_stats.items()), columns=["Model", "Count"]
             )
-            fig_model = px.bar(
-                model_df, x="Model", y="Count", title="Model Usage"
-            )
+            fig_model = px.bar(model_df, x="Model", y="Count", title="Model Usage")
             st.plotly_chart(fig_model)
 
             # Response Relevance
@@ -385,9 +373,7 @@ class MentalHealthChatbot:
 
             # Additional textual summaries
             st.subheader("Detailed Metrics")
-            st.write(
-                f"- Average response time: {avg_response_time:.2f} seconds"
-            )
+            st.write(f"- Average response time: {avg_response_time:.2f} seconds")
             st.write("- Feedback received:")
             for feedback_type, count in feedback_stats.items():
                 st.write(f"  • {feedback_type}: {count}")
@@ -407,9 +393,7 @@ class MentalHealthChatbot:
 
         except Exception as e:
             st.error(f"An error occurred while fetching metrics: {str(e)}")
-            logger.error(
-                f"Error in display_metrics_page: {str(e)}", exc_info=True
-            )
+            logger.error(f"Error in display_metrics_page: {str(e)}", exc_info=True)
 
     def show_sidebar(self):
         st.sidebar.title("💡 Get a Mental Health Tip")

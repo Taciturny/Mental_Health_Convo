@@ -4,12 +4,8 @@ from pathlib import Path
 
 from core.config import settings
 from core.search_engine import SearchEngine
-from core.utils import (
-    initialize_qdrant,
-    is_relevant_query,
-    load_and_embed_data,
-    upload_data_to_qdrant,
-)
+from core.utils import (initialize_qdrant, is_relevant_query,
+                        load_and_embed_data, upload_data_to_qdrant)
 
 # Configure logging
 logging.basicConfig(
@@ -92,9 +88,7 @@ def main():
         while True:
             query = input("Enter your search query (or 'quit' to exit): ")
             if query.lower() == "quit":
-                print(
-                    "Thank you for using the Mental Health QA system. Goodbye!"
-                )
+                print("Thank you for using the Mental Health QA system. Goodbye!")
                 break
 
             # Check if the query is relevant using the improved function
@@ -118,9 +112,7 @@ def main():
                 print_results(rag_result["search_results"])
 
                 # Ask for feedback
-                feedback = input(
-                    "Was this response helpful? (yes/no): "
-                ).lower()
+                feedback = input("Was this response helpful? (yes/no): ").lower()
                 if feedback == "no":
                     print(
                         "I apologize that the response wasn't helpful. Please try rephrasing your question or ask something more specific about mental health."
