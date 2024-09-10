@@ -202,6 +202,7 @@ Configure GitHub Actions to automate testing and linting for the project. The co
 **Lint Job**: This job performs linting checks with `flake8` to ensure code quality and adherence to style guidelines.
 
 3. Triggering CI/CD
+
 **Push**: GitHub Actions will automatically run tests and linting checks every time you push changes to the main branch.
 
 **Pull Request**: The workflow will run whenever a pull request is opened against the main branch to verify that the proposed changes meet quality standards.
