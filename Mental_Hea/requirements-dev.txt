@@ -12,3 +12,4 @@ pandas
 numpy
 plotly
 tenacity
+streamlit
