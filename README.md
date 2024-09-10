@@ -26,7 +26,7 @@ The data used in this project was sourced from Hugging Face [Link](https://huggi
 ## Metrics
 Model performance was evaluated using various metrics, including Precision and Normalized Cumulative Gain (NCGC), with NCGC providing the best results.
 
-Overall Project Structure ![Project Architecture](Mental_Hea/Images/overal_arch.png)
+Overall Project Structure ![Project Architecture](Mental_Hea/Images/workflow.png)
 
 
 # Project Structure
