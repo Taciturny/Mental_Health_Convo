@@ -33,13 +33,14 @@ class EmbeddingsModel:
                 "sentence-transformers/all-MiniLM-L6-v2"
             )
             # self.sparse_embedding_model = Bm25("Qdrant/bm25")
-            self.late_interaction_embedding_model = LateInteractionTextEmbedding(
-                "colbert-ir/colbertv2.0"
+            self.late_interaction_embedding_model = (
+                LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
             )
             logger.info("All embedding models initialized successfully.")
         except Exception as e:
             logger.error(
-                f"Error initializing embeddings models: {str(e)}", exc_info=True
+                f"Error initializing embeddings models: {str(e)}",
+                exc_info=True,
             )
             raise
 
@@ -64,7 +65,9 @@ class EmbeddingsModel:
 
             # Generate embeddings for the current batch
             dense_batch = self.dense_embedding_model.embed(batch_inputs)
-            late_batch = self.late_interaction_embedding_model.embed(batch_inputs)
+            late_batch = self.late_interaction_embedding_model.embed(
+                batch_inputs
+            )
 
             dense_embeddings.extend(dense_batch)
             late_embeddings.extend(late_batch)

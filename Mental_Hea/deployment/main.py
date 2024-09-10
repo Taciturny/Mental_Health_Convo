@@ -46,7 +46,9 @@ def run():
         logger.info("Qdrant initialized successfully with cloud settings.")
 
         # Check if collection exists and create it if it doesn't
-        if not qdrant_manager.collection_exists(settings.COLLECTION_NAME_CLOUD):
+        if not qdrant_manager.collection_exists(
+            settings.COLLECTION_NAME_CLOUD
+        ):
             logger.info(
                 f"Collection '{settings.COLLECTION_NAME_CLOUD}' does not exist. Creating it now."
             )
@@ -88,7 +90,9 @@ def run():
         while True:
             query = input("Enter your search query (or 'quit' to exit): ")
             if query.lower() == "quit":
-                print("Thank you for using the Mental Health QA system. Goodbye!")
+                print(
+                    "Thank you for using the Mental Health QA system. Goodbye!"
+                )
                 break
 
             if not is_relevant_query(query, relevant_keywords):
@@ -112,7 +116,9 @@ def run():
                 print("AI Response:", cohere_response)
 
                 # Ask for feedback
-                feedback = input("Was this response helpful? (yes/no): ").lower()
+                feedback = input(
+                    "Was this response helpful? (yes/no): "
+                ).lower()
                 if feedback == "no":
                     print(
                         "I apologize that the response wasn't helpful. Please try rephrasing your question or ask something more specific about mental health."
@@ -120,7 +126,8 @@ def run():
 
             except Exception as e:
                 logger.error(
-                    f"An error occurred during the search: {str(e)}", exc_info=True
+                    f"An error occurred during the search: {str(e)}",
+                    exc_info=True,
                 )
                 print(
                     "I apologize, but an error occurred while processing your query. Please try again."

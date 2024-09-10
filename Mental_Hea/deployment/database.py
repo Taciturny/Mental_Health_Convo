@@ -137,7 +137,13 @@ class SQLiteDatabase:
         return self.fetch_one(query, (username,))
 
     def store_conversation(
-        self, user_id, user_input, response, response_time, search_method, model_used
+        self,
+        user_id,
+        user_input,
+        response,
+        response_time,
+        search_method,
+        model_used,
     ):
         query = """
             INSERT INTO conversations
@@ -146,7 +152,14 @@ class SQLiteDatabase:
         """
         return self.execute_query(
             query,
-            (user_id, user_input, response, response_time, search_method, model_used),
+            (
+                user_id,
+                user_input,
+                response,
+                response_time,
+                search_method,
+                model_used,
+            ),
         )
 
     def update_conversation(
@@ -158,7 +171,8 @@ class SQLiteDatabase:
             WHERE id = ?
         """
         self.execute_query(
-            query, (user_input, response, search_method, model_used, conversation_id)
+            query,
+            (user_input, response, search_method, model_used, conversation_id),
         )
 
     def store_feedback(self, conversation_id, feedback_type):
@@ -287,7 +301,9 @@ class SQLiteDatabase:
         results = self.fetch_all(query)
         return dict(results)
 
-    def update_conversation_relevance(self, conversation_id: str, relevance: str):
+    def update_conversation_relevance(
+        self, conversation_id: str, relevance: str
+    ):
         query = """
             UPDATE conversation_metrics
             SET relevance = ?

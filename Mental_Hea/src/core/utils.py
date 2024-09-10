@@ -5,11 +5,10 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import tqdm
-from transformers import pipeline
-
 from src.core.data_loader import DataLoader
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.qdrant_manager import QdrantManager
+from transformers import pipeline
 
 from .config import settings
 
@@ -63,7 +62,9 @@ def load_and_embed_data(
         all_dense_embeddings.extend(dense_embeddings)
         all_late_embeddings.extend(late_embeddings)
 
-    logger.info(f"Finished loading and embedding. Total data points: {len(all_data)}")
+    logger.info(
+        f"Finished loading and embedding. Total data points: {len(all_data)}"
+    )
     return all_data, all_dense_embeddings, all_late_embeddings
 
 
@@ -75,7 +76,11 @@ def upload_data_to_qdrant(
     late_embeddings: List[np.ndarray],
 ):
     qdrant_manager.prepare_and_upload_points(
-        data, dense_embeddings, late_embeddings, qdrant_manager.client, collection_name
+        data,
+        dense_embeddings,
+        late_embeddings,
+        qdrant_manager.client,
+        collection_name,
     )
 
 
@@ -113,10 +118,15 @@ def merge_search_results(
     dense_results, late_results, hybrid_results, weights=(0.3, 0.3, 0.4)
 ):
     all_results = {}
-    for results, weight in zip([dense_results, late_results, hybrid_results], weights):
+    for results, weight in zip(
+        [dense_results, late_results, hybrid_results], weights
+    ):
         for result in results:
             if result.id not in all_results:
-                all_results[result.id] = {"score": 0, "payload": result.payload}
+                all_results[result.id] = {
+                    "score": 0,
+                    "payload": result.payload,
+                }
             all_results[result.id]["score"] += result.score * weight
 
     merged_results = sorted(

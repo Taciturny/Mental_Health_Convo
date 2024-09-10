@@ -2,14 +2,13 @@ import math
 import threading
 
 import torch
+from src.core.config import settings
 from transformers import AutoModelForCausalLM  # [import-error]
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     GPT2LMHeadModel,
 )
-
-from src.core.config import settings
 
 
 class EnsembleModel:
@@ -34,8 +33,12 @@ class EnsembleModel:
     def _initialize(self):
         self.models = {
             "gpt2": self._load_model(settings.GPT2_MODEL, GPT2LMHeadModel),
-            "dialogpt": self._load_model(settings.DIALOGPT_MODEL, AutoModelForCausalLM),
-            "distilgpt2": self._load_model(settings.DISTILGPT2_MODEL, GPT2LMHeadModel),
+            "dialogpt": self._load_model(
+                settings.DIALOGPT_MODEL, AutoModelForCausalLM
+            ),
+            "distilgpt2": self._load_model(
+                settings.DISTILGPT2_MODEL, GPT2LMHeadModel
+            ),
         }
 
         self.sentiment_model = self._load_model(
@@ -100,7 +103,9 @@ class EnsembleModel:
         tokenizer = self.sentiment_model["tokenizer"]
         model = self.sentiment_model["model"]
 
-        inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True)
+        inputs = tokenizer(
+            text, return_tensors="pt", max_length=512, truncation=True
+        )
 
         with torch.no_grad():
             outputs = model(**inputs)
@@ -151,14 +156,18 @@ class EnsembleModel:
         for prompt in prompts:
             enhanced_prompt = self.enhance_prompt(prompt, model_name)
             inputs = tokenizer(
-                enhanced_prompt, return_tensors="pt", truncation=True, max_length=512
+                enhanced_prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512,
             )
 
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
                     max_new_tokens=min(
-                        settings.MAX_NEW_TOKENS, 1024 - len(inputs["input_ids"][0])
+                        settings.MAX_NEW_TOKENS,
+                        1024 - len(inputs["input_ids"][0]),
                     ),
                     num_return_sequences=settings.NUM_RETURN_SEQUENCES,
                     temperature=settings.TEMPERATURE,
@@ -169,9 +178,14 @@ class EnsembleModel:
                     pad_token_id=tokenizer.eos_token_id,
                 )
 
-            sequences = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            sequences = tokenizer.batch_decode(
+                outputs, skip_special_tokens=True
+            )
             all_sequences.extend(
-                [self.post_process_response(sequence, prompt) for sequence in sequences]
+                [
+                    self.post_process_response(sequence, prompt)
+                    for sequence in sequences
+                ]
             )
 
         return all_sequences
@@ -201,7 +215,9 @@ class EnsembleModel:
         response = response.strip()
         sentences = response.split(".")
         cleaned_sentences = [
-            sentence.strip().capitalize() for sentence in sentences if sentence.strip()
+            sentence.strip().capitalize()
+            for sentence in sentences
+            if sentence.strip()
         ]
         response = ". ".join(cleaned_sentences)
 

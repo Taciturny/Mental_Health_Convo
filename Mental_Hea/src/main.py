@@ -92,7 +92,9 @@ def main():
         while True:
             query = input("Enter your search query (or 'quit' to exit): ")
             if query.lower() == "quit":
-                print("Thank you for using the Mental Health QA system. Goodbye!")
+                print(
+                    "Thank you for using the Mental Health QA system. Goodbye!"
+                )
                 break
 
             # Check if the query is relevant using the improved function
@@ -116,7 +118,9 @@ def main():
                 print_results(rag_result["search_results"])
 
                 # Ask for feedback
-                feedback = input("Was this response helpful? (yes/no): ").lower()
+                feedback = input(
+                    "Was this response helpful? (yes/no): "
+                ).lower()
                 if feedback == "no":
                     print(
                         "I apologize that the response wasn't helpful. Please try rephrasing your question or ask something more specific about mental health."
@@ -124,7 +128,8 @@ def main():
 
             except Exception as e:
                 logger.error(
-                    f"An error occurred during the search: {str(e)}", exc_info=True
+                    f"An error occurred during the search: {str(e)}",
+                    exc_info=True,
                 )
                 print(
                     "I apologize, but an error occurred while processing your query. Please try again."

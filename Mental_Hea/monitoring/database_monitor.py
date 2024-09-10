@@ -28,7 +28,9 @@ class Database:
     def put_conn(self, conn):
         self.pool.putconn(conn)
 
-    def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Tuple]:
+    def execute_query(
+        self, query: str, params: Optional[tuple] = None
+    ) -> List[Tuple]:
         conn = self.get_conn()
         try:
             with conn.cursor() as cur:
@@ -139,7 +141,9 @@ class Database:
                 "INSERT INTO feedback (conversation_id, feedback) VALUES (%s::uuid, %s)",
                 (conversation_id, feedback),
             )
-            logger.info(f"Stored feedback for conversation ID: {conversation_id}")
+            logger.info(
+                f"Stored feedback for conversation ID: {conversation_id}"
+            )
         except Exception as e:
             logger.error(f"Error storing feedback: {str(e)}")
             # Check if the conversation exists
@@ -148,7 +152,9 @@ class Database:
                 (conversation_id,),
             )[0][0]
             if not conversation_exists:
-                logger.error(f"Conversation with ID {conversation_id} does not exist")
+                logger.error(
+                    f"Conversation with ID {conversation_id} does not exist"
+                )
                 raise ValueError(
                     f"Conversation with ID {conversation_id} does not exist"
                 )
@@ -207,7 +213,9 @@ class Database:
         """
         )
         engagement_stats = dict(result)
-        logger.info(f"Retrieved user engagement stats for the last {days} days")
+        logger.info(
+            f"Retrieved user engagement stats for the last {days} days"
+        )
         return engagement_stats
 
     def get_model_performance_stats(self) -> List[Dict[str, Any]]:
@@ -267,7 +275,9 @@ class Database:
         ) user_counts
         """
         result = self.execute_query(query)
-        engagement_rate = result[0][0] if result and result[0][0] is not None else None
+        engagement_rate = (
+            result[0][0] if result and result[0][0] is not None else None
+        )
         logger.info(f"User engagement rate: {engagement_rate}")
         return engagement_rate
 
@@ -292,7 +302,9 @@ class Database:
         """
         result = self.execute_query(query)
         error_rate = (
-            round(result[0][0], 2) if result and result[0][0] is not None else None
+            round(result[0][0], 2)
+            if result and result[0][0] is not None
+            else None
         )
         logger.info(f"Error rate: {error_rate}")
         return error_rate
@@ -318,7 +330,9 @@ class Database:
         WHERE confidence_score IS NOT NULL
         """
         result = self.execute_query(query)
-        return tuple(round(val, 2) if val is not None else None for val in result[0])
+        return tuple(
+            round(val, 2) if val is not None else None for val in result[0]
+        )
 
     def get_active_users(self, days: int = 7) -> int:
         """Get number of active users in the last n days."""
@@ -340,7 +354,11 @@ class Database:
         ) conversation_lengths
         """
         result = self.execute_query(query)
-        return round(result[0][0], 2) if result and result[0][0] is not None else None
+        return (
+            round(result[0][0], 2)
+            if result and result[0][0] is not None
+            else None
+        )
 
     def get_daily_conversation_count(
         self, last_n_days: int = 30
@@ -369,5 +387,7 @@ class Database:
         """
         result = self.execute_query(query)
         feedback_distribution = dict(result)
-        logger.info(f"Retrieved feedback distribution: {feedback_distribution}")
+        logger.info(
+            f"Retrieved feedback distribution: {feedback_distribution}"
+        )
         return feedback_distribution

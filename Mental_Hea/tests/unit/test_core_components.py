@@ -2,12 +2,15 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
 from src.core.data_loader import DataLoader
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.qdrant_manager import QdrantManager
 from src.core.search_engine import SearchEngine
-from src.core.utils import initialize_qdrant, is_relevant_query, load_and_embed_data
+from src.core.utils import (
+    initialize_qdrant,
+    is_relevant_query,
+    load_and_embed_data,
+)
 
 
 class TestDataLoader(unittest.TestCase):
@@ -71,13 +74,19 @@ class TestEmbeddingsModel(unittest.TestCase):
 
         # Patch the instance attributes
         self.embeddings_model.dense_embedding_model = mock_dense.return_value
-        self.embeddings_model.late_interaction_embedding_model = mock_late.return_value
+        self.embeddings_model.late_interaction_embedding_model = (
+            mock_late.return_value
+        )
 
         inputs = ["Test input"]
         dense, late = self.embeddings_model.embeddings(inputs)
 
-        np.testing.assert_array_almost_equal(dense[0], mock_dense_output, decimal=3)
-        np.testing.assert_array_almost_equal(late[0], mock_late_output, decimal=3)
+        np.testing.assert_array_almost_equal(
+            dense[0], mock_dense_output, decimal=3
+        )
+        np.testing.assert_array_almost_equal(
+            late[0], mock_late_output, decimal=3
+        )
 
         mock_dense.return_value.embed.assert_called_once_with(inputs)
         mock_late.return_value.embed.assert_called_once_with(inputs)
@@ -148,7 +157,10 @@ class TestQdrantManager(unittest.TestCase):
     @patch("src.core.qdrant_manager.QdrantManager.collection_exists")
     @patch("src.core.qdrant_manager.QdrantManager.create_collection")
     def test_create_collection_if_not_exists(
-        self, mock_create_collection, mock_collection_exists, mock_qdrant_client
+        self,
+        mock_create_collection,
+        mock_collection_exists,
+        mock_qdrant_client,
     ):
         manager = QdrantManager(self.host, self.port)
         collection_name = "test_collection"
@@ -214,7 +226,9 @@ class TestUtils(unittest.TestCase):
 
     @patch("src.core.utils.DataLoader")
     @patch("src.core.utils.EmbeddingsModel")
-    def test_load_and_embed_data(self, mock_embeddings_model, mock_data_loader):
+    def test_load_and_embed_data(
+        self, mock_embeddings_model, mock_data_loader
+    ):
         mock_data_loader.return_value.load_data_in_batches.return_value = [
             [{"question": "Test?"}]
         ]
@@ -235,31 +249,47 @@ class TestUtils(unittest.TestCase):
     def test_keyword_match(self, mock_sentiment_analyzer):
         # Test exact keyword match
         relevant_keywords = ["depressed", "anxiety", "treatment"]
-        self.assertTrue(is_relevant_query("I'm feeling depressed", relevant_keywords))
         self.assertTrue(
-            is_relevant_query("Looking for anxiety treatment", relevant_keywords)
+            is_relevant_query("I'm feeling depressed", relevant_keywords)
+        )
+        self.assertTrue(
+            is_relevant_query(
+                "Looking for anxiety treatment", relevant_keywords
+            )
         )
 
         # Test non-matching query
         self.assertFalse(
-            is_relevant_query("What's the weather like today?", relevant_keywords)
+            is_relevant_query(
+                "What's the weather like today?", relevant_keywords
+            )
         )
 
     @patch("src.core.utils.sentiment_analyzer")
     def test_sentiment_analysis(self, mock_sentiment_analyzer):
         # Mock sentiment analyzer for negative sentiment
-        mock_sentiment_analyzer.return_value = [{"label": "NEGATIVE", "score": 0.8}]
+        mock_sentiment_analyzer.return_value = [
+            {"label": "NEGATIVE", "score": 0.8}
+        ]
         relevant_keywords = ["depressed", "anxiety", "treatment"]
         self.assertTrue(
-            is_relevant_query("I feel terrible and hopeless", relevant_keywords)
+            is_relevant_query(
+                "I feel terrible and hopeless", relevant_keywords
+            )
         )
 
         # Mock sentiment analyzer for positive sentiment
-        mock_sentiment_analyzer.return_value = [{"label": "POSITIVE", "score": 0.9}]
-        self.assertFalse(is_relevant_query("I feel great today!", relevant_keywords))
+        mock_sentiment_analyzer.return_value = [
+            {"label": "POSITIVE", "score": 0.9}
+        ]
+        self.assertFalse(
+            is_relevant_query("I feel great today!", relevant_keywords)
+        )
 
         # Mock sentiment analyzer for negative sentiment but low score
-        mock_sentiment_analyzer.return_value = [{"label": "NEGATIVE", "score": 0.6}]
+        mock_sentiment_analyzer.return_value = [
+            {"label": "NEGATIVE", "score": 0.6}
+        ]
         self.assertFalse(
             is_relevant_query("The weather is a bit gloomy", relevant_keywords)
         )

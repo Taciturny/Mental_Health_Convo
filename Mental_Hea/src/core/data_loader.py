@@ -15,13 +15,17 @@ class DataLoader:
         """Get the total number of rows in the parquet file."""
         if self._total_rows is None:
             try:
-                self._total_rows = len(pd.read_parquet(self.file_path, columns=[]))
+                self._total_rows = len(
+                    pd.read_parquet(self.file_path, columns=[])
+                )
             except Exception as e:
                 logger.error(f"Error getting total rows: {str(e)}")
                 raise
         return self._total_rows
 
-    def load_data_in_batches(self, batch_size: int = 100) -> List[List[Dict[str, str]]]:
+    def load_data_in_batches(
+        self, batch_size: int = 100
+    ) -> List[List[Dict[str, str]]]:
         """
         Load data from the parquet file in batches.
 

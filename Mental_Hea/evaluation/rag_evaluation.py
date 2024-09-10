@@ -5,12 +5,11 @@ from typing import Dict, List
 import mlflow
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-
 from src.core.config import settings
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.llm_model import EnsembleModel
 from src.core.search_engine import SearchEngine
+from tqdm import tqdm
 
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
@@ -22,7 +21,9 @@ def load_datasets():
         .sample(n=4000, random_state=42)
         .to_dict(orient="records")
     )  # use a sample size of 4000 or less to save time
-    ground_truth = pd.read_parquet(settings.GROUND_TRUTH_DATA).to_dict(orient="records")
+    ground_truth = pd.read_parquet(settings.GROUND_TRUTH_DATA).to_dict(
+        orient="records"
+    )
     return original_data, ground_truth
 
 
@@ -54,11 +55,13 @@ def calculate_mrr(relevance_scores: List[int]) -> float:
 
 def calculate_ndcg(relevance_scores: List[int], k: int) -> float:
     dcg = sum(
-        (2**rel - 1) / np.log2(i + 1) for i, rel in enumerate(relevance_scores[:k], 1)
+        (2**rel - 1) / np.log2(i + 1)
+        for i, rel in enumerate(relevance_scores[:k], 1)
     )
     ideal_relevance = sorted(relevance_scores, reverse=True)
     idcg = sum(
-        (2**rel - 1) / np.log2(i + 1) for i, rel in enumerate(ideal_relevance[:k], 1)
+        (2**rel - 1) / np.log2(i + 1)
+        for i, rel in enumerate(ideal_relevance[:k], 1)
     )
     return dcg / idcg if idcg > 0 else 0
 
@@ -86,7 +89,8 @@ def evaluate_model(
     gt_dict = {gt["id"]: gt for gt in ground_truth}
 
     for i in tqdm(
-        range(0, len(original_data), batch_size), desc=f"Evaluating {model_name}"
+        range(0, len(original_data), batch_size),
+        desc=f"Evaluating {model_name}",
     ):
         batch = original_data[i : i + batch_size]
         batch_results = []
@@ -106,11 +110,15 @@ def evaluate_model(
                     for r in retrieved
                 ]
             )
-            prompt = f"Context: {context}\n\nUser: {item['question']}\nAssistant:"
+            prompt = (
+                f"Context: {context}\n\nUser: {item['question']}\nAssistant:"
+            )
             prompts.append(prompt)
 
         if model_name == "ensemble":
-            batch_generated_responses = ensemble_model._generate_ensemble(prompts)
+            batch_generated_responses = ensemble_model._generate_ensemble(
+                prompts
+            )
         else:
             batch_generated_responses = ensemble_model._generate_single_model(
                 model_name, prompts
@@ -126,7 +134,9 @@ def evaluate_model(
 
             if original_id in gt_dict:
                 # Generate embeddings
-                original_embedding, _ = embeddings_model.embeddings([original_answer])
+                original_embedding, _ = embeddings_model.embeddings(
+                    [original_answer]
+                )
                 llm_embedding, _ = embeddings_model.embeddings([answer_llm])
 
                 # Calculate relevance scores
@@ -146,7 +156,9 @@ def evaluate_model(
                     if retrieved_results
                     else 0
                 )
-                recall = relevant_retrieved / 1  # Assuming 1 ground truth item per id
+                recall = (
+                    relevant_retrieved / 1
+                )  # Assuming 1 ground truth item per id
                 mrr = calculate_mrr(relevance_scores)
                 ndcg = calculate_ndcg(relevance_scores, k=5)
                 cosine_sim = calculate_cosine_similarity(
@@ -165,7 +177,9 @@ def evaluate_model(
                         "ndcg": ndcg,
                         "cosine_similarity": cosine_sim,
                         "search_score": (
-                            retrieved_results[0]["score"] if retrieved_results else None
+                            retrieved_results[0]["score"]
+                            if retrieved_results
+                            else None
                         ),
                     }
                 )
@@ -184,7 +198,9 @@ def main():
         embeddings_model = EmbeddingsModel.get_instance()
 
         all_results = {}
-        for model_name in tqdm(["gpt2", "dialogpt", "distilgpt2"], desc="Models"):
+        for model_name in tqdm(
+            ["gpt2", "dialogpt", "distilgpt2"], desc="Models"
+        ):
             print(f"Evaluating {model_name}...")
             model_results = evaluate_model(
                 model_name,
@@ -207,7 +223,9 @@ def main():
                 ),
             }
 
-            mlflow.log_metrics({f"{model_name}_{k}": v for k, v in avg_metrics.items()})
+            mlflow.log_metrics(
+                {f"{model_name}_{k}": v for k, v in avg_metrics.items()}
+            )
 
         # Print comparison results
         print("\nModel Comparison Results:")
@@ -217,7 +235,9 @@ def main():
                 "recall": np.mean([r["recall"] for r in results]),
                 "mrr": np.mean([r["mrr"] for r in results]),
                 "ndcg": np.mean([r["ndcg"] for r in results]),
-                "cosine_similarity": np.mean([r["cosine_similarity"] for r in results]),
+                "cosine_similarity": np.mean(
+                    [r["cosine_similarity"] for r in results]
+                ),
             }
             print(f"\n{model_name.upper()}:")
             for metric, value in avg_metrics.items():
