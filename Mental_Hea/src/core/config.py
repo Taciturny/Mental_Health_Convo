@@ -4,9 +4,9 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    COHERE_API_KEY: str
+    # COHERE_API_KEY: str
     QDRANT_URL: str
-    QDRANT_API_KEY: str
+    # QDRANT_API_KEY: str
     DEPLOYMENT_MODE: str = (
         "local"  # Default to 'cloud' for Cohere and Qdrant cloud (when running deployment/main.py)
     )
@@ -45,6 +45,5 @@ class Settings(BaseSettings):
         env_file = str(Path(__file__).resolve().parent.parent / ".env")
         # env_file = str(Path(__file__).resolve().parent.parent / '.env') uncomment when running locally
         # env_file_encoding = "utf-8"
-
 
 settings = Settings()
