@@ -173,7 +173,7 @@ python -m deployment.main
 
 3. Deploy and Access the App
 
-  If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Streamliit. You can access it here [App](https://mentalhealthconvo-kjresaxnefnve5ptb5ohw5.streamlit.app/).
+  If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Streamliit. You can access it here [Streamlit App](https://mentalhealthconvo-eb5wdksv8fihwr9danfurp.streamlit.app/).
 
 
 ### Step 7: Tests (Unit and Integration Tests)
