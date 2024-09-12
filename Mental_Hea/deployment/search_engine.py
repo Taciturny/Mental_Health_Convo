@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ sys.path.append(str(project_root))
 
 
 QDRANT_URL = "https://e932e81a-113e-440f-96c0-c17b530bfe79.europe-west3-0.gcp.cloud.qdrant.io:6333/dashboard"
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 
 class SearchEngine:
@@ -22,7 +24,7 @@ class SearchEngine:
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
         self.embeddings_model = EmbeddingsModel.get_instance()
-        self.client = QdrantClient(url=QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+        self.client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
     def search_dense(self, query_text: str):
         try:

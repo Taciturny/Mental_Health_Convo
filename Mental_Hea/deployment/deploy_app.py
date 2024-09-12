@@ -28,7 +28,7 @@ COLLECTION_NAME_CLOUD = "mental_health_collection"
 load_dotenv()
 
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
 
 st.set_page_config(
     page_title="Mental Health Chatbot",
