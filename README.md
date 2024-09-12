@@ -28,7 +28,6 @@ Model performance was evaluated using various metrics, including Precision and N
 
 Overall Project Structure     ![Project Architecture](Mental_Hea/Images/workflow.png)
 
-
 # Project Structure
 ```bash
 Mental_Health_Convo/
@@ -130,7 +129,7 @@ mlflow ui
 ```
 
 `Retrieval Evaluation`
-Multiple searches (dense, late-interaction, and hybrid) was evaluated. The best-performing method (dense) is selected for use in deployment. To perform this evaluation, run the following script:
+Multiple searches (dense, late-interaction, and hybrid) was evaluated. The best-performing method (dense) is selected for use in deployment. Please note that running the rag evaluation will take a long time for cpu users (almost 20hrs). To perform this evaluation, run the following script:
 
 ```bash
 python -m evaluation.qdrant_evaluation
