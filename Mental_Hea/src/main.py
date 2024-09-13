@@ -4,8 +4,12 @@ from pathlib import Path
 
 from core.config import settings
 from core.search_engine import SearchEngine
-from core.utils import (initialize_qdrant, is_relevant_query,
-                        load_and_embed_data, upload_data_to_qdrant)
+from core.utils import (
+    initialize_qdrant,
+    is_relevant_query,
+    load_and_embed_data,
+    upload_data_to_qdrant,
+)
 
 # Configure logging
 logging.basicConfig(

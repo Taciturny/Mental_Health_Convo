@@ -7,8 +7,8 @@ import uuid
 from pathlib import Path
 from typing import Dict
 
-import plotly.graph_objects as go
 import streamlit as st
+from admin_dashboard import admin_dashboard
 from cohere_model import CohereModel
 from database import SQLiteDB
 from dotenv import load_dotenv
@@ -23,12 +23,11 @@ sys.path.append(str(project_root))
 QDRANT_URL = "https://e932e81a-113e-440f-96c0-c17b530bfe79.europe-west3-0.gcp.cloud.qdrant.io:6333/dashboard"
 COLLECTION_NAME_CLOUD = "mental_health_collection"
 
-
 # Load environment variables
 load_dotenv()
 
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 st.set_page_config(
     page_title="Mental Health Chatbot",
@@ -66,6 +65,7 @@ class MentalHealthApp:
             "Hi! I'm here to chat about anything related to mental well-being. What's on your mind?",
         ]
 
+    def initialize_session_state(self):
         if "user_id" not in st.session_state:
             st.session_state.user_id = str(uuid.uuid4())
         if "conversation_id" not in st.session_state:
@@ -77,7 +77,28 @@ class MentalHealthApp:
         if "current_response" not in st.session_state:
             st.session_state.current_response = ""
         if "conversation_history" not in st.session_state:
-            st.session_state.conversation_history = []
+            st.session_state.conversation_history = self.load_conversation_history()
+        if "current_view" not in st.session_state:
+            st.session_state.current_view = "chat"
+
+    def load_conversation_history(self):
+        cursor = self.db.conn.cursor()
+        cursor.execute(
+            """
+            SELECT user_input, ai_response FROM conversations
+            WHERE user_id = ? ORDER BY timestamp ASC
+            """,
+            (st.session_state.user_id,),
+        )
+        history = cursor.fetchall()
+        return [
+            (
+                {"role": "user", "content": user_input}
+                if i % 2 == 0
+                else {"role": "assistant", "content": ai_response}
+            )
+            for i, (user_input, ai_response) in enumerate(history)
+        ]
 
     def get_greeting_response(self):
         return random.choice(self.greeting_responses)
@@ -127,239 +148,148 @@ class MentalHealthApp:
         )
         try:
             relevance_score = float(relevance_check.strip())
-            return round(
-                max(0, min(1, relevance_score)), 2
-            )  # Ensure the score is between 0 and 1, rounded to 2 decimal places
+            return round(max(0, min(1, relevance_score)), 2)
         except ValueError:
-            return 0.50  # Default to neutral if parsing fails
-
-    def visualize_metrics(self):
-        cursor = self.db.conn.cursor()
-        cursor.execute(
-            """
-            SELECT response_time, prompt_tokens, response_tokens, completion_tokens, relevance
-            FROM conversations WHERE user_id = ?
-        """,
-            (st.session_state.user_id,),
-        )
-        results = cursor.fetchall()
-
-        if not results:
-            st.write("No conversation data available yet.")
-            return
-
-        # Unpack the results
-        (
-            response_times,
-            prompt_tokens,
-            response_tokens,
-            completion_tokens,
-            relevance_scores,
-        ) = zip(*results)
-
-        # Textual summary
-        st.subheader("Conversation Summary")
-        total_conversations = len(results)
-        avg_response_time = (
-            sum(response_times) / total_conversations if total_conversations > 0 else 0
-        )
-        avg_relevance = (
-            sum(relevance_scores) / total_conversations
-            if total_conversations > 0
-            else 0
-        )
-
-        st.write(f"Total conversations: {total_conversations}")
-        st.write(f"Average response time: {avg_response_time:.2f} seconds")
-        st.write(f"Average relevance score: {avg_relevance:.2f}")
-
-        # Line chart for response times
-        fig_response_time = go.Figure()
-        fig_response_time.add_trace(
-            go.Scatter(y=response_times, mode="lines+markers", name="Response Time")
-        )
-        fig_response_time.update_layout(
-            title="Response Time Trend",
-            xaxis_title="Conversation Number",
-            yaxis_title="Time (s)",
-        )
-        st.plotly_chart(fig_response_time)
-
-        # Bar chart for token counts
-        fig_tokens = go.Figure()
-        fig_tokens.add_trace(
-            go.Bar(
-                x=["Prompt", "Response", "Completion"],
-                y=[sum(prompt_tokens), sum(response_tokens), sum(completion_tokens)],
-                name="Token Counts",
-            )
-        )
-        fig_tokens.update_layout(
-            title="Total Token Usage", xaxis_title="Token Type", yaxis_title="Count"
-        )
-        st.plotly_chart(fig_tokens)
-
-        # Line chart for relevance scores
-        fig_relevance = go.Figure()
-        fig_relevance.add_trace(
-            go.Scatter(y=relevance_scores, mode="lines+markers", name="Relevance Score")
-        )
-        fig_relevance.update_layout(
-            title="Relevance Score Trend",
-            xaxis_title="Conversation Number",
-            yaxis_title="Relevance (0-1)",
-        )
-        st.plotly_chart(fig_relevance)
-
-        # Pie chart for feedback distribution
-        cursor.execute(
-            """
-            SELECT feedback, COUNT(*) as count FROM feedback WHERE user_id = ? GROUP BY feedback
-        """,
-            (st.session_state.user_id,),
-        )
-        feedback_data = cursor.fetchall()
-
-        if feedback_data:
-            fig_feedback = go.Figure(
-                data=[
-                    go.Pie(
-                        labels=[row[0] for row in feedback_data],
-                        values=[row[1] for row in feedback_data],
-                    )
-                ]
-            )
-            fig_feedback.update_layout(title="Feedback Distribution")
-            st.plotly_chart(fig_feedback)
-        else:
-            st.write("No feedback data available yet.")
+            return 0.50
 
     def run(self):
+        self.initialize_session_state()
+
         st.title("Mental Health Support Chat")
 
+        # Move the admin login to the sidebar
         self.show_sidebar()
 
-        # Radio button for page selection
-        page = st.radio("Navigation", ("Chat", "Metrics"))
+        # Navigation based on current view
+        if st.session_state.current_view == "admin":
+            admin_dashboard()
+        else:
+            self.show_chat_interface()
 
-        if page == "Chat":
-            # Display conversation history
-            for message in st.session_state.conversation_history:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+    def show_chat_interface(self):
+        # Chat interface
+        for message in st.session_state.conversation_history:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-            # Input box at the bottom
-            user_input = st.chat_input("Type your message here...")
+        user_input = st.chat_input("Type your message here...")
 
-            if user_input:
-                # Add user message to chat history
-                st.session_state.conversation_history.append(
-                    {"role": "user", "content": user_input}
-                )
-                with st.chat_message("user"):
-                    st.markdown(user_input)
+        if user_input:
+            st.session_state.conversation_history.append(
+                {"role": "user", "content": user_input}
+            )
+            with st.chat_message("user"):
+                st.markdown(user_input)
 
-                start_time = time.time()
+            start_time = time.time()
 
-                # Check for greetings
-                if any(greeting in user_input.lower() for greeting in self.greetings):
-                    response = self.get_greeting_response()
-                    is_greeting = True
-                else:
-                    is_greeting = False
-                    search_results = self.search_engine.search_dense(user_input)
-                    context = ""
-                    max_score = 0
+            if any(greeting in user_input.lower() for greeting in self.greetings):
+                response = self.get_greeting_response()
+                is_greeting = True
+            else:
+                is_greeting = False
+                search_results = self.search_engine.search_dense(user_input)
+                context = ""
+                max_score = 0
 
-                    if (
-                        search_results
-                        and hasattr(search_results, "points")
-                        and search_results.points
-                    ):
-                        for point in search_results.points:
-                            payload = point.payload
-                            context += f"{payload.get('text', '')}\n"
-                            max_score = max(max_score, point.score)
+                if (
+                    search_results
+                    and hasattr(search_results, "points")
+                    and search_results.points
+                ):
+                    for point in search_results.points:
+                        payload = point.payload
+                        context += f"{payload.get('text', '')}\n"
+                        max_score = max(max_score, point.score)
 
-                    if max_score < 0.3:
-                        response = (
-                            "I'm not confident I have accurate information to answer your question. "
-                            "Could you please rephrase your question or ask about a different mental health topic? "
-                            "I'm here to provide reliable information and support related to mental health."
-                        )
-                    else:
-                        prompt = f"Context: {context}\n\nUser: {user_input}\nAssistant:"
-                        response = self.llm_model.generate_response(prompt=prompt)
-
-                end_time = time.time()
-
-                # Add AI response to chat history
-                st.session_state.conversation_history.append(
-                    {"role": "assistant", "content": response}
-                )
-                with st.chat_message("assistant"):
-                    st.markdown(response)
-
-                if not is_greeting:
-                    relevance = self.check_relevance(user_input, response)
-                    metrics = self.calculate_metrics(
-                        user_input, response, start_time, end_time, relevance
+                if max_score < 0.3:
+                    response = (
+                        "I'm not confident I have accurate information to answer your question. "
+                        "Could you please rephrase your question or ask about a different mental health topic? "
+                        "I'm here to provide reliable information and support related to mental health."
                     )
+                else:
+                    prompt = f"Context: {context}\n\nUser: {user_input}\nAssistant:"
+                    response = self.llm_model.generate_response(prompt=prompt)
 
-                    self.db.save_conversation(
+            end_time = time.time()
+
+            st.session_state.conversation_history.append(
+                {"role": "assistant", "content": response}
+            )
+            with st.chat_message("assistant"):
+                st.markdown(response)
+
+            if not is_greeting:
+                relevance = self.check_relevance(user_input, response)
+                metrics = self.calculate_metrics(
+                    user_input, response, start_time, end_time, relevance
+                )
+
+                self.db.save_conversation(
+                    st.session_state.user_id,
+                    st.session_state.conversation_id,
+                    user_input,
+                    response,
+                    metrics,
+                )
+
+            st.session_state.current_response = response
+            st.session_state.show_feedback = not is_greeting
+
+        # Feedback section
+        if st.session_state.show_feedback:
+            feedback = st.radio(
+                "Was this response helpful?",
+                ("Yes", "No", "Not selected"),
+                index=2,
+                key="feedback_radio",
+            )
+
+            if feedback != "Not selected":
+                st.session_state.feedback = feedback
+
+            if st.button("Submit Feedback"):
+                if st.session_state.feedback:
+                    self.db.save_feedback(
                         st.session_state.user_id,
                         st.session_state.conversation_id,
-                        user_input,
-                        response,
-                        metrics,
+                        st.session_state.feedback,
                     )
 
-                st.session_state.current_response = response
-                st.session_state.show_feedback = not is_greeting
-
-            # Feedback section
-            if st.session_state.show_feedback:
-                feedback = st.radio(
-                    "Was this response helpful?",
-                    ("Yes", "No", "Not selected"),
-                    index=2,
-                    key="feedback_radio",
-                )
-
-                if feedback != "Not selected":
-                    st.session_state.feedback = feedback
-
-                if st.button("Submit Feedback"):
-                    if st.session_state.feedback:
-                        self.db.save_feedback(
-                            st.session_state.user_id,
-                            st.session_state.conversation_id,
-                            st.session_state.feedback,
-                        )
-
-                        st.success("Thank you for your feedback!")
-                        st.session_state.show_feedback = False
-                        st.session_state.feedback = None
-                    else:
-                        st.warning("Please select a feedback option before submitting.")
-
-        elif page == "Metrics":
-            self.visualize_metrics()
+                    st.success("Thank you for your feedback!")
+                    st.session_state.show_feedback = False
+                    st.session_state.feedback = None
+                else:
+                    st.warning("Please select a feedback option before submitting.")
 
     def show_sidebar(self):
+
+        with st.sidebar:
+            st.title("Navigation")
+            if st.session_state.current_view == "admin":
+                if st.button("Back to Chat"):
+                    st.session_state.current_view = "chat"
+                    st.rerun()
+            else:
+                # Admin login option
+                st.title("Admin Login")
+                password = st.text_input("Enter admin password", type="password")
+                if st.button("Login as Admin"):
+                    if (
+                        password == ADMIN_PASSWORD
+                    ):  # Replace with your actual admin password
+                        st.session_state.current_view = "admin"
+                        st.rerun()
+                    else:
+                        st.error("Incorrect password")
         st.sidebar.title("💡 Get a Mental Health Tip")
         tip = self.get_mental_health_tip()
         st.sidebar.write(tip)
 
         st.sidebar.title("📊 Quick Mood Check")
         mood = st.sidebar.slider("How are you feeling today?", 1, 5, 3)
-        mood_labels = {
-            1: "Very Low",
-            2: "Low",
-            3: "Neutral",
-            4: "Good",
-            5: "Excellent",
-        }
+        mood_labels = {1: "Very Low", 2: "Low", 3: "Neutral", 4: "Good", 5: "Excellent"}
         st.sidebar.write(f"You're feeling: {mood_labels[mood]}")
 
         st.sidebar.title("Need immediate help?")

@@ -2,12 +2,12 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+
 from src.core.data_loader import DataLoader
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.qdrant_manager import QdrantManager
 from src.core.search_engine import SearchEngine
-from src.core.utils import (initialize_qdrant, is_relevant_query,
-                            load_and_embed_data)
+from src.core.utils import initialize_qdrant, is_relevant_query, load_and_embed_data
 
 
 class TestDataLoader(unittest.TestCase):

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from qdrant_client import QdrantClient, models
+
 # from src.core.config import settings
 from src.core.embeddings_model import EmbeddingsModel
 

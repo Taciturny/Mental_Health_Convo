@@ -5,10 +5,11 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import tqdm
+from transformers import pipeline
+
 from src.core.data_loader import DataLoader
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.qdrant_manager import QdrantManager
-from transformers import pipeline
 
 from .config import settings
 

@@ -5,11 +5,12 @@ from typing import Dict, List
 import mlflow
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 from src.core.config import settings
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.llm_model import EnsembleModel
 from src.core.search_engine import SearchEngine
-from tqdm import tqdm
 
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))

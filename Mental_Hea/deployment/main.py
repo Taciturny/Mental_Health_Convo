@@ -3,8 +3,12 @@ import sys
 from pathlib import Path
 
 from src.core.config import settings
-from src.core.utils import (initialize_qdrant, is_relevant_query,
-                            load_and_embed_data, upload_data_to_qdrant)
+from src.core.utils import (
+    initialize_qdrant,
+    is_relevant_query,
+    load_and_embed_data,
+    upload_data_to_qdrant,
+)
 
 from .cohere_model import CohereModel
 from .search_engine import SearchEngine

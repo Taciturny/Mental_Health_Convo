@@ -151,9 +151,11 @@ To effectively monitor our Streamlit app, follow these steps:
 1. Review the Local Monitoring App: Watch the brief video demonstrating the local monitoring application using open-source Qdrant [Monitoring_app](https://drive.google.com/file/d/1PwFlH2nVBDL7SUkIGI8xUavKIRqwgwTc/view?usp=sharing). Please note that the application may run slowly due to the use of localhost and CPU-based open-source models.
 
 2. Configure Grafana: Ensure that Grafana is running. You can either create a new dashboard and upload the `grafana.json` file or manually copy each query from the `database_monitor.py` file and paste them into Grafana.
-![Average Tokens](Mental_Hea/Images/avg_token.png)
 ![Response Relevance](Mental_Hea/Images/resp_rel.png)
-![Topics Discussed](Mental_Hea/Images/top_dis.png)
+![User Input Wordcloud](Mental_Hea/Images/user_input.png)
+![Conversation History](Mental_Hea/Images/conversation-his.png)
+![Feedback Disrtibution](Mental_Hea/Images/feedback.png)
+![Token Usage](Mental_Hea/Images/token-usage.png)
 
 
 ### Step 6: Deployment
@@ -173,7 +175,8 @@ python -m deployment.main
 
 3. Deploy and Access the App
 
-  If you choose not to upsert data manually, you can still assess the app. The mental health chatbot is deployed on Streamliit. You can access it here [Streamlit App](https://mentalhealthconvo-eb5wdksv8fihwr9danfurp.streamlit.app/).
+  If you prefer not to upsert data manually, you can still explore the app. The mental health chatbot is deployed on Streamlit, and you can access it[Streamlit App](https://mentalhealthconvo-eb5wdksv8fihwr9danfurp.streamlit.app/).
+  To view the `metrics page`, use the password `1234` (this is a temporary password and will be updated later).
 
 
 ### Step 7: Tests (Unit and Integration Tests)

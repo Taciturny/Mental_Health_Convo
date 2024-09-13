@@ -3,6 +3,7 @@ from typing import List, Tuple
 
 import numpy as np
 from fastembed import TextEmbedding
+
 # from fastembed.sparse.bm25 import Bm25
 from fastembed.late_interaction import LateInteractionTextEmbedding
 

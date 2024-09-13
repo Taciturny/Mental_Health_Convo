@@ -2,10 +2,14 @@ import math
 import threading
 
 import torch
-from src.core.config import settings
 from transformers import AutoModelForCausalLM  # [import-error]
-from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
-                          GPT2LMHeadModel)
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    GPT2LMHeadModel,
+)
+
+from src.core.config import settings
 
 
 class EnsembleModel:
