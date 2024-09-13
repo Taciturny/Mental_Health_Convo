@@ -175,7 +175,8 @@ python -m deployment.main
 
 3. Deploy and Access the App
 
-  If you prefer not to upsert data manually, you can still explore the app. The mental health chatbot is deployed on Streamlit, and you can access it[Streamlit App](https://mentalhealthconvo-eb5wdksv8fihwr9danfurp.streamlit.app/).
+  If you prefer not to upsert data manually, you can still explore the app. The mental health chatbot is deployed on Streamlit, and you can access it [Streamlit App](https://mentalhealthconvo-gvwg4erh5j2tnmyfyunecg.streamlit.app/).
+
   To view the `metrics page`, use the password `1234` (this is a temporary password and will be updated later).
 
 
