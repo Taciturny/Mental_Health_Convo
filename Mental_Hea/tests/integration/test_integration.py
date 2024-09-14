@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 from monitoring.app import MentalHealthMonitoringApp
 
 # Adjust the path to ensure the monitoring folder is found

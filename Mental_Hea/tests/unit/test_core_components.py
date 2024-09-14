@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
 from src.core.data_loader import DataLoader
 from src.core.embeddings_model import EmbeddingsModel
 from src.core.qdrant_manager import QdrantManager

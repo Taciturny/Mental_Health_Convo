@@ -29,12 +29,6 @@ load_dotenv()
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-st.set_page_config(
-    page_title="Mental Health Chatbot",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 
 class MentalHealthApp:
     def __init__(self):
@@ -155,15 +149,22 @@ class MentalHealthApp:
     def run(self):
         self.initialize_session_state()
 
-        st.title("Mental Health Support Chat")
+        # Set the page config (this doesn't change the visible title)
+        st.set_page_config(
+            page_title="Mental Health App",
+            layout="wide",
+            initial_sidebar_state="expanded",
+        )
 
         # Move the admin login to the sidebar
         self.show_sidebar()
 
         # Navigation based on current view
         if st.session_state.current_view == "admin":
+            st.title("Enhanced Admin Dashboard")
             admin_dashboard()
         else:
+            st.title("Mental Health Support Chat")
             self.show_chat_interface()
 
     def show_chat_interface(self):

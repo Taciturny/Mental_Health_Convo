@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
 from src.core.search_engine import SearchEngine
 
 from .database_monitor import Database

@@ -155,7 +155,7 @@ To effectively monitor our Streamlit app, follow these steps:
 ![User Input Wordcloud](Mental_Hea/Images/user_input.png)
 ![Conversation History](Mental_Hea/Images/conversation-his.png)
 ![Feedback Disrtibution](Mental_Hea/Images/feedback.png)
-![Token Usage](Mental_Hea/Images/token-usage.png)
+![Token Usage](Mental_Hea/Images/tokens_prompt.png)
 
 
 ### Step 6: Deployment
@@ -175,7 +175,7 @@ python -m deployment.main
 
 3. Deploy and Access the App
 
-  If you prefer not to upsert data manually, you can still explore the app. The mental health chatbot is deployed on Streamlit, and you can access it [Streamlit App](https://mentalhealthconvo-gvwg4erh5j2tnmyfyunecg.streamlit.app/).
+  If you prefer not to upsert data manually, you can still explore the app. The mental health chatbot is deployed on Streamlit, and you can access it   [Streamlit App](https://mentalhealthconvo-gvwg4erh5j2tnmyfyunecg.streamlit.app/).
 
   To view the `metrics page`, use the password `1234` (this is a temporary password and will be updated later).
 
