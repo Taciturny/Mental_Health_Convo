@@ -1,4 +1,4 @@
-# Mental Health Conversation Project
+# Mental Health Conversation Project using RAG and Qdrant
 
 ## Problem Statement
 
@@ -25,6 +25,7 @@ The data used in this project was sourced from Hugging Face [Link](https://huggi
 
 ## Metrics
 Model performance was evaluated using various metrics, including Precision and Normalized Cumulative Gain (NCGC), with NCGC providing the best results.
+
 
 Overall Project Structure     ![Project Architecture](Mental_Hea/Images/workflow.png)
 
@@ -114,7 +115,7 @@ python -m dataset_processing
 
 `Option 2`: Use Preprocessed Data
 
-If you want to use the clean, preprocessed data, skip the data ingestion step and execute the main script directly. Before running this script, ensure you have created a `.env` file and included all the necessary variables defined in `config.py`. This will allow the script to correctly insert data into the knowledge base
+If you want to use the cleaned, preprocessed data, you can skip the data ingestion step and run the main script directly. Before executing the script, ensure you have downloaded the following models from Hugging Face: `gpt2`, `dialogpt`, `distilgpt2`, and `distilbert-base-uncased-finetuned-sst-2-english`. Hugging Face should be installed and imported as a singleton. Additionally, make sure all necessary variables are correctly configured in `src.core.config.py`. This will enable the script to properly insert data into the knowledge base
 ```bash
 python -m src.main
 ```
